@@ -74,23 +74,25 @@ body {
   mix-blend-mode: overlay;
 }
 
-/* Polaroid developing animation — image emerges from a blank, milky sheet */
+/* Polaroid developing animation — image emerges from a blank, milky sheet.
+   No grayscale here: monochrome films are already B&W in the pixels, so a
+   forced grayscale would wrongly recolor Retro Color photos. */
 @keyframes polaroid-develop {
   0% {
-    filter: blur(16px) brightness(0.12) contrast(0.5) grayscale(1);
+    filter: blur(16px) brightness(0.12) contrast(0.5);
     opacity: 0;
   }
   20% {
     opacity: 1;
   }
   45% {
-    filter: blur(7px) brightness(0.5) contrast(0.85) grayscale(1);
+    filter: blur(7px) brightness(0.5) contrast(0.85);
   }
   75% {
-    filter: blur(2px) brightness(0.9) contrast(1.05) grayscale(1);
+    filter: blur(2px) brightness(0.9) contrast(1.05);
   }
   100% {
-    filter: blur(0) brightness(1) contrast(1.12) grayscale(1);
+    filter: blur(0) brightness(1) contrast(1.12);
     opacity: 1;
   }
 }
