@@ -13,21 +13,20 @@ import { enqueuePhoto } from "@/lib/storage/uploadQueue";
 import { formatEventDate } from "@/lib/format";
 import type { EventRow } from "@/types/database";
 
-function captureFrame(video: HTMLVideoElement, zoom = 1): HTMLCanvasElement | null {
+function captureFrame(video: HTMLVideoElement): HTMLCanvasElement | null {
   const vw = video.videoWidth;
   const vh = video.videoHeight;
   if (!vw || !vh) return null;
-  // Crop the centered region so the captured photo matches the zoomed preview.
-  const sw = vw / zoom;
-  const sh = vh / zoom;
-  const sx = (vw - sw) / 2;
-  const sy = (vh - sh) / 2;
+  // Full-frame capture: native optical zoom (when supported) is produced by the
+  // camera hardware itself, so the video frame is already zoomed. We never
+  // emulate zoom by cropping — if a device has no native zoom, we simply expose
+  // no zoom control and capture the whole frame.
   const canvas = document.createElement("canvas");
-  canvas.width = sw;
-  canvas.height = sh;
+  canvas.width = vw;
+  canvas.height = vh;
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
-  ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
+  ctx.drawImage(video, 0, 0, vw, vh);
   return canvas;
 }
 
@@ -49,7 +48,7 @@ export default function ShootPage() {
     "environment",
   );
   const [flashMode, setFlashMode] = useState<"on" | "off">("off");
-  const [flashActive, setFlashActive] = useState(false);
+  const [supportsTorch, setSupportsTorch] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const [cameraError, setCameraError] = useState(false);
   const [zoom, setZoom] = useState(1);
@@ -71,13 +70,20 @@ export default function ShootPage() {
           audio: false,
         });
         streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
+        const v = videoRef.current;
+        if (v) {
+          v.srcObject = stream;
+          v.muted = true;
+          v.playsInline = true;
+          // Start playing right away and mark streaming so the preview paints
+          // even before the 'playing' event (avoids a black screen on iOS).
+          v.play().catch(() => {});
+          setStreaming(true);
         }
 
-        // Detect real (optical) zoom support and apply current flash/zoom.
+        // Feature-detect real hardware capabilities per device.
         const track = stream.getVideoTracks()[0];
-        const caps = track.getCapabilities?.() as any;
+        const caps = (track.getCapabilities?.() as any) ?? {};
         const z = caps?.zoom;
         if (z && typeof z === "object" && "max" in z && z.max > 1) {
           zoomRange.current = {
@@ -90,9 +96,14 @@ export default function ShootPage() {
           zoomRange.current = null;
           setNativeZoom(false);
         }
-        track
-          .applyConstraints({ advanced: [{ torch: flashMode === "on" }] } as any)
-          .catch(() => {});
+        setSupportsTorch(!!caps?.torch);
+
+        // Apply current torch/zoom only when the device actually supports it.
+        if (caps?.torch) {
+          track
+            .applyConstraints({ advanced: [{ torch: flashMode === "on" }] } as any)
+            .catch(() => {});
+        }
         if (zoomRange.current) {
           const val = Math.min(
             zoomRange.current.max,
@@ -104,7 +115,6 @@ export default function ShootPage() {
         }
 
         setCameraError(false);
-        setStreaming(true);
       } catch {
         setCameraError(true);
         setStreaming(false);
@@ -136,9 +146,10 @@ export default function ShootPage() {
   }, [session]);
 
   // Keep the real LED (torch) and optical zoom in sync with the chosen mode.
+  // Torch is only touched when the device reports real support (never emulated).
   useEffect(() => {
     const track = streamRef.current?.getVideoTracks()[0];
-    if (!track) return;
+    if (!track || !supportsTorch) return;
     track
       .applyConstraints({ advanced: [{ torch: flashMode === "on" }] } as any)
       .catch(() => {});
@@ -151,30 +162,37 @@ export default function ShootPage() {
         .applyConstraints({ advanced: [{ zoom: val }] } as any)
         .catch(() => {});
     }
-  }, [flashMode, zoom, nativeZoom]);
+  }, [flashMode, zoom, nativeZoom, supportsTorch]);
 
-  function triggerFlash() {
-    if (flashMode === "off") return;
-    setFlashActive(true);
-    setTimeout(() => setFlashActive(false), 150);
-  }
+  // Silent one-time tap-to-start: some browsers (notably iOS) require a user
+  // gesture before video playback begins. A single pointerdown anywhere on the
+  // page kicks the video off (no audio, no UI), then removes itself.
+  useEffect(() => {
+    const onFirst = () => {
+      videoRef.current?.play().catch(() => {});
+      window.removeEventListener("pointerdown", onFirst);
+    };
+    window.addEventListener("pointerdown", onFirst, { once: true });
+    return () => window.removeEventListener("pointerdown", onFirst);
+  }, []);
 
   async function handleShutter() {
     if (!session || session.shotsLeft <= 0) return;
     playShutterSound();
-    triggerFlash();
 
-  const frame =
-    videoRef.current && !cameraError
-      ? captureFrame(videoRef.current, nativeZoom ? 1 : zoom)
-      : null;
+    const frame =
+      videoRef.current && !cameraError ? captureFrame(videoRef.current) : null;
     if (!frame) return;
+
+    // When flash is On but the device has no real LED, emulate it on the canvas.
+    const useCanvasFlash = flashMode === "on" && !supportsTorch;
 
     decrementShots();
     try {
       const result = await processFilmPhoto(frame, {
         dateStamp: eventDate,
         style: session.filmStyle,
+        flash: useCanvasFlash,
       });
       setProcessed(result);
       setCapturedImage(result.dataUrl);
@@ -191,6 +209,7 @@ export default function ShootPage() {
         const result = await processFilmPhoto(file, {
           dateStamp: eventDate,
           style: session.filmStyle,
+          flash: flashMode === "on" && !supportsTorch,
         });
         decrementShots();
         setProcessed(result);
@@ -248,7 +267,6 @@ export default function ShootPage() {
         videoRef={videoRef}
         facingMode={facingMode}
         flashMode={flashMode}
-        flashActive={flashActive}
         streaming={streaming}
         cameraError={cameraError}
         shotsLeft={session.shotsLeft}
@@ -268,8 +286,15 @@ export default function ShootPage() {
         }
         zoom={zoom}
         nativeZoom={nativeZoom}
-        onZoomIn={() => setZoom((z) => Math.min(3, Math.round((z + 0.5) * 10) / 10))}
-        onZoomOut={() => setZoom((z) => Math.max(1, Math.round((z - 0.5) * 10) / 10))}
+        zoomMax={zoomRange.current?.max ?? 3}
+        onZoomIn={() =>
+          setZoom((z) =>
+            Math.min(zoomRange.current?.max ?? 3, Math.round((z + 0.5) * 10) / 10),
+          )
+        }
+        onZoomOut={() =>
+          setZoom((z) => Math.max(1, Math.round((z - 0.5) * 10) / 10))
+        }
         onShutter={handleShutter}
         onFileSelected={handleFileSelected}
         onViewRoll={() => router.push(`/camera/${token}/roll`)}

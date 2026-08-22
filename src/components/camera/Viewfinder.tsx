@@ -13,44 +13,44 @@ import type { FilmStyle } from "@/lib/photo/filmProcessor";
 type FlashMode = "on" | "off";
 
 interface ViewfinderProps {
-  videoRef: RefObject<HTMLVideoElement | null>;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
   facingMode: "user" | "environment";
-  flashMode: FlashMode;
-  flashActive: boolean;
+  flashMode: "on" | "off";
   streaming: boolean;
   cameraError: boolean;
   shotsLeft: number;
   coupleName: string;
   eventDate: string;
-  filmStyle: FilmStyle;
-  zoom: number;
-  nativeZoom: boolean;
+  filmStyle: "mono" | "fuji";
   onFlip: () => void;
   onToggleFlash: () => void;
   onToggleFilmStyle: () => void;
+  zoom: number;
+  nativeZoom: boolean;
+  zoomMax: number;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onShutter: () => void;
   onFileSelected: (file: File) => void;
-  onViewRoll?: () => void;
+  onViewRoll: () => void;
 }
 
 export default function Viewfinder({
   videoRef,
   facingMode,
   flashMode,
-  flashActive,
   streaming,
   cameraError,
   shotsLeft,
   coupleName,
   eventDate,
   filmStyle,
-  zoom,
-  nativeZoom,
   onFlip,
   onToggleFlash,
   onToggleFilmStyle,
+  zoom,
+  nativeZoom,
+  zoomMax,
   onZoomIn,
   onZoomOut,
   onShutter,
@@ -70,9 +70,7 @@ export default function Viewfinder({
             filmStyle === "fuji" ? "film-filter-fuji" : "film-filter"
           }`}
           style={{
-            transform: `scale(${nativeZoom ? 1 : zoom})${
-              facingMode === "user" ? " scaleX(-1)" : ""
-            }`,
+            transform: facingMode === "user" ? "scaleX(-1)" : undefined,
           }}
         />
 
@@ -104,7 +102,8 @@ export default function Viewfinder({
           </span>
         </div>
 
-        {/* Zoom stepper */}
+        {/* Zoom stepper — only shown when the device exposes real (optical) zoom */}
+        {nativeZoom && (
         <div className="absolute left-4 top-[calc(max(env(safe-area-inset-top),12px)+28px)] flex items-center gap-2 rounded-full bg-black/40 px-2 py-1 backdrop-blur-sm">
           <button
             type="button"
@@ -121,13 +120,14 @@ export default function Viewfinder({
           <button
             type="button"
             onClick={onZoomIn}
-            disabled={zoom >= 3}
             aria-label="Zoom in"
             className="flex h-6 w-6 items-center justify-center rounded-full text-white/80 disabled:opacity-30"
+            disabled={zoom >= zoomMax}
           >
             <span className="text-lg leading-none">+</span>
           </button>
         </div>
+        )}
 
         {/* Mid-level controls: flash + focal length (decorative) + flip */}
         <div className="absolute bottom-4 left-0 right-0 flex items-center justify-center gap-6">
@@ -192,13 +192,6 @@ export default function Viewfinder({
             </label>
           </div>
         )}
-
-        {/* Flash overlay */}
-        <div
-          className={`pointer-events-none absolute inset-0 bg-white transition-opacity duration-150 ${
-            flashActive ? "opacity-90" : "opacity-0"
-          }`}
-        />
       </div>
 
       {/* ─── Bottom controls bar ─── */}

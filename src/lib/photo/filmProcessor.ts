@@ -4,6 +4,7 @@ export interface FilmOptions {
   maxDimension?: number;
   dateStamp?: string;
   style?: FilmStyle;
+  flash?: boolean;
   grainOpacity?: number;
   contrast?: number;
   brightness?: number;
@@ -133,6 +134,25 @@ function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   });
 }
 
+// Disposable-camera flash emulation (used only when no real LED is available,
+// e.g. iOS). Lifts shadows/midtones so the photo reads as flash-lit, plus a
+// small contrast bump. Channel-agnostic so it works for mono and color films.
+function applyFlashExposure(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  lift = 0.14,
+) {
+  const img = ctx.getImageData(0, 0, width, height);
+  const data = img.data;
+  for (let i = 0; i < data.length; i += 4) {
+    data[i] = data[i] + (255 - data[i]) * lift;
+    data[i + 1] = data[i + 1] + (255 - data[i + 1]) * lift;
+    data[i + 2] = data[i + 2] + (255 - data[i + 2]) * lift;
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
 function applyMonochrome(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -231,13 +251,18 @@ export async function processFilmPhoto(
     applyMonochrome(ctx, dw, dh, opts.contrast, opts.brightness);
   }
 
-  // 2. Procedural film grain (heavier for the grainy B&W look)
+  // 2. Flash exposure boost (only when no real LED fired — applied by caller)
+  if (opts.flash) {
+    applyFlashExposure(ctx, dw, dh);
+  }
+
+  // 3. Procedural film grain (heavier for the grainy B&W look)
   drawGrain(ctx, dw, dh, opts.grainOpacity);
 
-  // 3. Vignette
+  // 4. Vignette
   drawVignette(ctx, dw, dh, opts.vignette);
 
-  // 4. Retro date stamp
+  // 5. Retro date stamp
   if (opts.dateStamp) drawDateStamp(ctx, dw, dh, opts.dateStamp);
 
   const blob = await canvasToBlob(canvas);
