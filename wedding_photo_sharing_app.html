@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>GINO + GABBY — The Wedding Camera</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts: Newsreader (Editorial Serif), Plus Jakarta Sans (Clean UI), Courier Prime (Film Mono) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;1,6..72,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            paper: '#FAF7F2',
+            'paper-card': '#FFFDF9',
+            'paper-border': '#E8E2D8',
+            charcoal: '#262422',
+            'charcoal-muted': '#6E6A63',
+            wine: '#8C2D27',
+            'wine-light': '#FAF0EF',
+            gold: '#D4AF37',
+            'stamp-yellow': '#F3B328',
+          },
+          fontFamily: {
+            serif: ['Newsreader', 'Georgia', 'serif'],
+            sans: ['Plus Jakarta Sans', 'sans-serif'],
+            mono: ['Courier Prime', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Subtle analog paper texture background */
+    body {
+      background-color: #ECE7DF;
+      color: #262422;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      overflow-x: hidden;
+    }
+
+    .paper-texture {
+      background-color: #FAF7F2;
+      background-image: radial-gradient(#E5DFD5 0.75px, transparent 0.75px), radial-gradient(#E5DFD5 0.75px, #FAF7F2 0.75px);
+      background-size: 30px 30px;
+      background-position: 0 0, 15px 15px;
+    }
+
+    /* Film grain overlay */
+    .film-grain {
+      position: relative;
+    }
+    .film-grain::after {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.06'/%3E%3C/svg%3E");
+      pointer-events: none;
+      border-radius: inherit;
+    }
+
+    /* Film / Warm photo filter effect */
+    .disposable-film-filter {
+      filter: sepia(0.12) contrast(1.06) saturate(1.1) brightness(0.98);
+      position: relative;
+    }
+
+    /* Polaroid frame visual styling */
+    .polaroid-frame {
+      background-color: #FFFDF9;
+      box-shadow: 0 4px 15px -3px rgba(38, 36, 34, 0.08), 0 2px 6px -2px rgba(38, 36, 34, 0.04);
+      border: 1px solid #EAE3D9;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .polaroid-frame:hover {
+      transform: translateY(-2px) rotate(0.5deg);
+      box-shadow: 0 8px 25px -5px rgba(38, 36, 34, 0.12);
+    }
+
+    /* Date stamp styling */
+    .date-stamp {
+      font-family: 'Courier Prime', monospace;
+      color: #E29D12;
+      text-shadow: 0 0 2px rgba(226, 157, 18, 0.4);
+      letter-spacing: 2px;
+      font-weight: 700;
+    }
+
+    /* Developing emulsion animation */
+    @keyframes developPhoto {
+      0% {
+        filter: brightness(0.1) contrast(2) blur(10px) sepia(0.8);
+        opacity: 0.2;
+      }
+      50% {
+        filter: brightness(0.6) contrast(1.3) blur(4px) sepia(0.4);
+        opacity: 0.7;
+      }
+      100% {
+        filter: sepia(0.12) contrast(1.06) saturate(1.1) brightness(0.98) blur(0);
+        opacity: 1;
+      }
+    }
+
+    .developing-active {
+      animation: developPhoto 3.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+    }
+
+    /* Shutter Flash Animation */
+    @keyframes cameraFlash {
+      0% { opacity: 0; }
+      15% { opacity: 1; background-color: #FFFDF9; }
+      100% { opacity: 0; }
+    }
+    .flash-overlay {
+      pointer-events: none;
+    }
+    .flash-overlay.active {
+      animation: cameraFlash 0.4s ease-out forwards;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #FAF7F2;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #D8D1C5;
+      border-radius: 3px;
+    }
+
+    /* Viewfinder mechanical ticks */
+    .viewfinder-corner {
+      width: 14px;
+      height: 14px;
+      border-color: rgba(255, 255, 255, 0.75);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between items-center antialiased">
+
+  <!-- Top Navigation & Viewport Mode Bar (For testing desktop/admin mode vs mobile guest view) -->
+  <header class="w-full bg-charcoal text-paper py-2 px-4 flex flex-wrap justify-between items-center text-xs border-b border-charcoal-muted z-50 shadow-sm">
+    <div class="flex items-center space-x-2 my-1">
+      <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse"></span>
+      <span class="font-mono tracking-wider text-amber-200 uppercase font-bold">GINO + GABBY · 10.01.26</span>
+    </div>
+    
+    <!-- Navigation shortcuts for reviewer ease of testing -->
+    <div class="flex items-center space-x-1 sm:space-x-2 my-1 overflow-x-auto">
+      <span class="text-charcoal-muted text-[10px] uppercase font-mono mr-1 hidden sm:inline">Jump to:</span>
+      <button onclick="navigateTo('screen-welcome')" class="px-2 py-1 bg-charcoal-muted/30 hover:bg-wine rounded text-[11px] font-medium transition">1. Welcome</button>
+      <button onclick="navigateTo('screen-name')" class="px-2 py-1 bg-charcoal-muted/30 hover:bg-wine rounded text-[11px] font-medium transition">2. Name</button>
+      <button onclick="navigateTo('screen-camera')" class="px-2 py-1 bg-charcoal-muted/30 hover:bg-wine rounded text-[11px] font-medium transition">3. Camera</button>
+      <button onclick="navigateTo('screen-gallery')" class="px-2 py-1 bg-charcoal-muted/30 hover:bg-wine rounded text-[11px] font-medium transition">5. Shared Roll</button>
+      <button onclick="navigateTo('screen-admin')" class="px-2 py-1 bg-wine/80 hover:bg-wine text-white rounded text-[11px] font-medium transition">
+        <i class="fa-solid fa-sliders mr-1"></i> Couple Dashboard
+      </button>
+    </div>
+  </header>
+
+  <!-- Main App Canvas Container (Mobile First Mockup Frame) -->
+  <main class="w-full flex-grow flex items-center justify-center p-0 sm:p-4 my-auto">
+    <!-- Responsive Container (Simulates phone on desktop, full bleed on mobile) -->
+    <div id="mobile-viewport" class="w-full max-w-md bg-paper min-h-screen sm:min-h-[812px] sm:max-h-[880px] sm:rounded-[36px] sm:border-[8px] sm:border-charcoal/80 shadow-2xl overflow-y-auto relative flex flex-col justify-between film-grain transition-all duration-300">
+
+      <!-- Camera Flash Overlay Layer -->
+      <div id="flash-effect" class="flash-overlay absolute inset-0 bg-white z-50 opacity-0 pointer-events-none"></div>
+
+      <!-- SCREEN 1: QR / Welcome Screen -->
+      <section id="screen-welcome" class="app-screen flex flex-col justify-between p-6 sm:p-8 min-h-full my-auto text-center">
+        <!-- Top Title Block -->
+        <div class="pt-6 space-y-2">
+          <p class="font-mono text-xs tracking-[0.25em] text-wine uppercase font-bold">10.01.26</p>
+          <h1 class="font-serif text-3xl sm:text-4xl tracking-tight text-charcoal font-normal">GINO + GABBY</h1>
+          <div class="w-12 h-[1px] bg-wine/40 mx-auto my-3"></div>
+          <p class="font-mono text-xs tracking-[0.2em] text-charcoal-muted uppercase">THE WEDDING CAMERA</p>
+        </div>
+
+        <!-- Decorative Card Frame -->
+        <div class="my-8 p-6 bg-paper-card border border-paper-border rounded-xl shadow-sm space-y-4 text-center">
+          <div class="inline-block p-3 bg-wine-light text-wine rounded-full mb-1">
+            <i class="fa-solid fa-camera-retro text-2xl"></i>
+          </div>
+          <h2 class="font-serif text-2xl text-charcoal leading-snug">
+            Take a picture.<br><span class="italic font-light">Keep the memory.</span>
+          </h2>
+          <p class="text-sm text-charcoal-muted leading-relaxed font-sans px-2">
+            Join our shared wedding camera and capture the day from your point of view.
+          </p>
+        </div>
+
+        <!-- Call to action button -->
+        <div class="pb-6 space-y-3">
+          <button onclick="navigateTo('screen-name')" class="w-full py-4 px-6 bg-wine hover:bg-[#78241f] text-paper font-sans font-medium text-sm tracking-wider uppercase rounded-xl shadow-md hover:shadow-lg transition-all transform active:scale-[0.99] flex items-center justify-center space-x-2">
+            <span>JOIN THE CAMERA</span>
+            <i class="fa-solid fa-arrow-right text-xs"></i>
+          </button>
+          <p class="font-mono text-[11px] text-charcoal-muted tracking-wide">
+            No app. No account. Just take photos.
+          </p>
+        </div>
+      </section>
+
+      <!-- SCREEN 2: Enter Your Name -->
+      <section id="screen-name" class="app-screen hidden flex-col justify-between p-6 sm:p-8 min-h-full my-auto">
+        <!-- Header -->
+        <div class="pt-4 flex justify-between items-center border-b border-paper-border pb-4">
+          <div>
+            <h3 class="font-serif text-lg text-charcoal">GINO + GABBY</h3>
+            <p class="font-mono text-[10px] text-wine tracking-widest uppercase">10.01.26</p>
+          </div>
+          <span class="font-mono text-xs text-charcoal-muted px-2 py-1 bg-paper-border/40 rounded">STEP 1 OF 2</span>
+        </div>
+
+        <!-- Form Content -->
+        <div class="my-auto py-8 space-y-6">
+          <div class="space-y-2">
+            <h2 class="font-serif text-2xl sm:text-3xl text-charcoal">Who's holding the camera?</h2>
+            <p class="text-sm text-charcoal-muted">Add your name so we know who captured each moment.</p>
+          </div>
+
+          <form onsubmit="event.preventDefault(); saveGuestName();" class="space-y-4">
+            <div class="space-y-1">
+              <label class="block font-mono text-xs text-charcoal-muted uppercase tracking-wider">FIRST NAME</label>
+              <input type="text" id="input-first-name" placeholder="e.g. Sarah" required
+                class="w-full px-4 py-3 bg-paper-card border border-paper-border rounded-lg focus:outline-none focus:border-wine focus:ring-1 focus:ring-wine text-charcoal placeholder-charcoal-muted/50 text-base">
+            </div>
+
+            <div class="space-y-1">
+              <label class="block font-mono text-xs text-charcoal-muted uppercase tracking-wider">LAST NAME</label>
+              <input type="text" id="input-last-name" placeholder="e.g. Miller" required
+                class="w-full px-4 py-3 bg-paper-card border border-paper-border rounded-lg focus:outline-none focus:border-wine focus:ring-1 focus:ring-wine text-charcoal placeholder-charcoal-muted/50 text-base">
+            </div>
+
+            <div class="pt-4">
+              <button type="submit" class="w-full py-4 px-6 bg-wine hover:bg-[#78241f] text-paper font-sans font-medium text-sm tracking-wider uppercase rounded-xl shadow-md transition-all active:scale-[0.99]">
+                START SHOOTING
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div class="text-center pb-4">
+          <p class="font-mono text-[10px] text-charcoal-muted uppercase tracking-widest">
+            <i class="fa-solid fa-lock text-[9px] mr-1"></i> Your photos go into the shared roll
+          </p>
+        </div>
+      </section>
+
+      <!-- SCREEN 3: Camera -->
+      <section id="screen-camera" class="app-screen hidden flex-col justify-between p-4 sm:p-5 min-h-full my-auto bg-[#211F1D] text-paper relative">
+        <!-- Digital Disposable Top Strip -->
+        <div class="flex justify-between items-center pb-3 border-b border-charcoal-muted/40 font-mono text-xs">
+          <div>
+            <span class="text-amber-200 font-bold tracking-widest block text-[11px]">GINO + GABBY</span>
+            <span class="text-charcoal-muted text-[10px]">10.01.26</span>
+          </div>
+
+          <!-- Counter indicator -->
+          <div class="flex items-center space-x-2 bg-charcoal px-3 py-1 rounded-full border border-charcoal-muted/50">
+            <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+            <span id="shots-counter" class="text-amber-300 font-bold tracking-wider">18 SHOTS LEFT</span>
+          </div>
+        </div>
+
+        <!-- Viewfinder Frame Container -->
+        <div class="my-auto relative py-3">
+          <!-- Viewfinder Frame Header details -->
+          <div class="flex justify-between items-center text-[10px] font-mono text-paper/70 mb-1 px-1">
+            <span>ISO 400 FILM</span>
+            <span id="camera-scene-title" class="text-amber-200">SCENE: DANCE FLOOR FLASH</span>
+          </div>
+
+          <!-- Imperfect Viewfinder Rectangular Box -->
+          <div id="viewfinder-box" class="relative w-full aspect-[4/3] bg-black rounded-lg overflow-hidden border-2 border-paper/30 shadow-inner group">
+            
+            <!-- Realistic Wedding Scene Preview Image or Video Feed -->
+            <img id="camera-preview-img" src="https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80" 
+                 alt="Wedding Scene Preview" 
+                 class="w-full h-full object-cover disposable-film-filter transition-all duration-300">
+
+            <!-- Crosshairs & Viewfinder Overlay Marks -->
+            <div class="absolute inset-0 pointer-events-none p-3 flex flex-col justify-between">
+              <div class="flex justify-between">
+                <div class="viewfinder-corner border-t-2 border-l-2"></div>
+                <div class="viewfinder-corner border-t-2 border-r-2"></div>
+              </div>
+              
+              <!-- Center Viewfinder Target -->
+              <div class="self-center w-8 h-8 border border-white/40 rounded-full flex items-center justify-center">
+                <div class="w-1 h-1 bg-amber-300 rounded-full"></div>
+              </div>
+
+              <div class="flex justify-between items-end">
+                <div class="viewfinder-corner border-b-2 border-l-2"></div>
+                <div class="font-mono text-[9px] text-amber-300/80 tracking-widest bg-black/40 px-1 rounded">
+                  EXP. <span id="film-counter-num">07</span>/25
+                </div>
+                <div class="viewfinder-corner border-b-2 border-r-2"></div>
+              </div>
+            </div>
+
+            <!-- Flash Indicator status tag -->
+            <div class="absolute top-3 right-3 bg-black/60 backdrop-blur-sm px-2 py-1 rounded text-[10px] font-mono text-amber-200 flex items-center space-x-1 border border-white/20">
+              <i id="flash-icon" class="fa-solid fa-bolt text-yellow-400"></i>
+              <span id="flash-label">FLASH ON</span>
+            </div>
+          </div>
+
+          <!-- Controls under Viewfinder -->
+          <div class="flex justify-between items-center mt-3 px-1 text-xs font-mono">
+            <!-- Scene switcher for simulation testing -->
+            <button onclick="cycleCameraScene()" class="px-2.5 py-1.5 bg-charcoal border border-charcoal-muted/50 rounded text-paper/80 hover:text-white flex items-center space-x-1">
+              <i class="fa-solid fa-images text-[10px] text-amber-200"></i>
+              <span class="text-[10px]">CHANGE MOMENT</span>
+            </button>
+
+            <!-- Front/Back Switch -->
+            <button onclick="toggleCameraFacing()" class="px-2.5 py-1.5 bg-charcoal border border-charcoal-muted/50 rounded text-paper/80 hover:text-white flex items-center space-x-1">
+              <i class="fa-solid fa-camera-rotate text-[10px]"></i>
+              <span id="camera-facing-label" class="text-[10px]">BACK</span>
+            </button>
+            
+            <!-- Flash Toggle -->
+            <button onclick="toggleFlash()" class="px-2.5 py-1.5 bg-charcoal border border-charcoal-muted/50 rounded text-paper/80 hover:text-white flex items-center space-x-1">
+              <i class="fa-solid fa-bolt-lightning text-[10px] text-yellow-400"></i>
+              <span id="flash-toggle-text" class="text-[10px]">AUTO</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Camera Bottom Controls & Tactile Shutter Button -->
+        <div class="py-4 text-center space-y-3">
+          <div class="relative inline-block">
+            <!-- Outer Metallic Bezel -->
+            <div class="p-1.5 bg-gradient-to-b from-stone-400 to-stone-700 rounded-full shadow-lg">
+              <!-- Physical Shutter Button -->
+              <button onclick="takePhoto()" class="w-20 h-20 bg-wine hover:bg-[#7d2620] active:scale-95 transition rounded-full border-4 border-stone-200 shadow-inner flex items-center justify-center focus:outline-none group">
+                <div class="w-14 h-14 rounded-full border-2 border-white/30 group-active:scale-90 transition"></div>
+              </button>
+            </div>
+          </div>
+          
+          <p class="font-mono text-xs tracking-widest text-amber-200/90 uppercase font-bold">TAP SHUTTER TO SHOOT</p>
+
+          <div class="pt-1 flex justify-center space-x-6 text-charcoal-muted text-[11px] font-mono">
+            <button onclick="navigateTo('screen-gallery')" class="hover:text-amber-200 transition underline flex items-center space-x-1">
+              <i class="fa-solid fa-photo-film"></i>
+              <span>VIEW WEDDING ROLL</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 4: Photo Preview / Developing -->
+      <section id="screen-developing" class="app-screen hidden flex-col justify-between p-6 sm:p-8 min-h-full my-auto text-center">
+        <div class="pt-2">
+          <p class="font-mono text-xs tracking-widest text-wine uppercase">GINO + GABBY</p>
+          <p class="font-mono text-[10px] text-charcoal-muted">DEVELOPING FILM...</p>
+        </div>
+
+        <!-- Polaroid Frame Container -->
+        <div id="developing-polaroid" class="my-auto p-4 bg-paper-card border border-paper-border shadow-xl rounded-sm max-w-xs mx-auto text-left transform rotate-[-1deg]">
+          <!-- Photo image with developing class -->
+          <div class="relative aspect-[4/3] bg-stone-900 overflow-hidden rounded-sm mb-4">
+            <img id="developed-photo-img" src="" alt="Captured Wedding Moment" class="w-full h-full object-cover">
+            <div id="date-stamp-overlay" class="absolute bottom-2 right-2 date-stamp text-xs">10.01.26</div>
+          </div>
+
+          <!-- Polaroid Footer Metadata -->
+          <div class="pt-1 pb-2 flex justify-between items-end font-mono">
+            <div>
+              <p id="captured-by-label" class="text-xs text-charcoal font-bold uppercase">BY SARAH M.</p>
+              <p class="text-[10px] text-charcoal-muted">10.01.26 · <span id="captured-time-label">8:47 PM</span></p>
+            </div>
+            <span class="text-[9px] text-wine font-bold tracking-widest uppercase bg-wine-light px-1.5 py-0.5 rounded">ORIGINAL FILM</span>
+          </div>
+        </div>
+
+        <!-- Status & Buttons -->
+        <div class="pb-4 space-y-3">
+          <div id="developing-status-text" class="font-mono text-xs text-wine tracking-widest uppercase animate-pulse">
+            <i class="fa-solid fa-compact-disc fa-spin mr-1"></i> DEVELOPING FILM PROCESS...
+          </div>
+
+          <div id="preview-actions" class="hidden space-y-2">
+            <button onclick="keepPhoto()" class="w-full py-3.5 px-6 bg-wine hover:bg-[#78241f] text-paper font-sans font-medium text-sm tracking-wider uppercase rounded-xl shadow-md transition active:scale-[0.99] flex items-center justify-center space-x-2">
+              <i class="fa-solid fa-check text-xs"></i>
+              <span>KEEP IT & ADD TO ROLL</span>
+            </button>
+
+            <button onclick="retakePhoto()" class="w-full py-2.5 px-6 bg-paper-border/50 hover:bg-paper-border text-charcoal font-sans text-xs tracking-wider uppercase rounded-xl transition">
+              RETAKE PHOTO
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREEN 5: Shared Wedding Roll -->
+      <section id="screen-gallery" class="app-screen hidden flex-col justify-between p-4 sm:p-6 min-h-full my-auto">
+        <!-- Gallery Header -->
+        <div class="pt-2 text-center border-b border-paper-border pb-4">
+          <p class="font-mono text-xs tracking-[0.2em] text-wine uppercase font-bold">10.01.26</p>
+          <h2 class="font-serif text-2xl text-charcoal">GINO + GABBY</h2>
+          <p class="font-mono text-xs tracking-wider text-charcoal-muted uppercase mt-0.5">OUR WEDDING ROLL</p>
+          <p class="text-xs text-charcoal-muted italic font-serif mt-1">"Moments captured by everyone who was there."</p>
+        </div>
+
+        <!-- Gallery Filters -->
+        <div class="flex justify-between items-center py-3 border-b border-paper-border/60 text-xs font-mono">
+          <span class="text-charcoal-muted"><strong id="total-photos-count">8</strong> PHOTOS SHOT</span>
+          <div class="flex space-x-1">
+            <button onclick="filterGallery('all')" class="px-2 py-1 bg-wine text-paper rounded text-[11px]">ALL</button>
+            <button onclick="filterGallery('mine')" class="px-2 py-1 bg-paper-border/60 text-charcoal rounded text-[11px]">MINE</button>
+          </div>
+        </div>
+
+        <!-- Shared Gallery Grid (Masonry feel) -->
+        <div id="gallery-grid" class="py-4 grid grid-cols-2 gap-3 overflow-y-auto max-h-[500px] pr-1">
+          <!-- Gallery photos dynamically populated by JS -->
+        </div>
+
+        <!-- Bottom Action Bar to return to Camera -->
+        <div class="pt-3 border-t border-paper-border flex justify-between items-center space-x-2">
+          <button onclick="navigateTo('screen-camera')" class="flex-1 py-3 bg-wine text-paper font-sans text-xs uppercase tracking-wider rounded-xl font-medium shadow flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-camera"></i>
+            <span>TAKE A PHOTO</span>
+          </button>
+          <button onclick="navigateTo('screen-admin')" title="Admin Dashboard" class="p-3 bg-paper-card border border-paper-border rounded-xl text-charcoal hover:bg-paper-border transition">
+            <i class="fa-solid fa-qrcode text-sm"></i>
+          </button>
+        </div>
+      </section>
+
+      <!-- SCREEN 6: Individual Photo Detail Modal -->
+      <section id="screen-detail" class="app-screen hidden flex-col justify-between p-6 min-h-full my-auto bg-charcoal text-paper">
+        <div class="flex justify-between items-center pt-2 border-b border-charcoal-muted/40 pb-3">
+          <p class="font-mono text-xs text-amber-200">GINO + GABBY · 10.01.26</p>
+          <button onclick="navigateTo('screen-gallery')" class="text-paper-border hover:text-white text-sm font-mono">
+            <i class="fa-solid fa-xmark"></i> CLOSE
+          </button>
+        </div>
+
+        <!-- Main Photo Frame View -->
+        <div class="my-auto p-4 bg-paper-card text-charcoal rounded-sm shadow-2xl space-y-3">
+          <div class="relative aspect-[4/3] bg-stone-900 rounded-sm overflow-hidden">
+            <img id="detail-photo-img" src="" alt="Full view" class="w-full h-full object-cover disposable-film-filter">
+            <div class="absolute bottom-2 right-2 date-stamp text-xs">10.01.26</div>
+          </div>
+
+          <div class="pt-2 font-mono flex justify-between items-end border-t border-paper-border">
+            <div>
+              <p class="text-xs text-charcoal-muted">CAPTURED BY</p>
+              <p id="detail-photo-author" class="text-sm font-bold text-charcoal">GABBY</p>
+            </div>
+            <p id="detail-photo-time" class="text-xs text-charcoal-muted">10.01.26 · 8:47 PM</p>
+          </div>
+        </div>
+
+        <!-- Detail Actions -->
+        <div class="pb-4 space-y-2">
+          <button onclick="downloadDetailPhoto()" class="w-full py-3 bg-paper text-charcoal font-sans text-xs uppercase tracking-wider font-semibold rounded-xl flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-download"></i>
+            <span>SAVE PHOTO</span>
+          </button>
+          <button onclick="navigateTo('screen-gallery')" class="w-full py-2.5 bg-charcoal-muted/30 text-paper-border hover:text-white font-sans text-xs uppercase tracking-wider rounded-xl">
+            BACK TO ROLL
+          </button>
+        </div>
+      </section>
+
+      <!-- SCREEN 7: Admin / Couple Dashboard View -->
+      <section id="screen-admin" class="app-screen hidden flex-col justify-between p-5 sm:p-6 min-h-full my-auto bg-paper">
+        <!-- Header -->
+        <div class="pt-2 flex justify-between items-center border-b border-paper-border pb-3">
+          <div>
+            <h2 class="font-serif text-xl text-charcoal">GINO + GABBY</h2>
+            <p class="font-mono text-[10px] text-wine uppercase tracking-widest">COUPLE DASHBOARD</p>
+          </div>
+          <button onclick="navigateTo('screen-gallery')" class="text-xs font-mono text-charcoal-muted hover:text-charcoal underline">
+            GUEST VIEW
+          </button>
+        </div>
+
+        <!-- Dashboard Body -->
+        <div class="my-auto py-4 space-y-5 overflow-y-auto max-h-[580px] pr-1">
+          <!-- Stats Cards -->
+          <div class="grid grid-cols-3 gap-2 text-center font-mono">
+            <div class="p-3 bg-paper-card border border-paper-border rounded-lg">
+              <span class="block text-lg font-bold text-charcoal">287</span>
+              <span class="text-[9px] text-charcoal-muted uppercase">GUESTS</span>
+            </div>
+            <div class="p-3 bg-paper-card border border-paper-border rounded-lg">
+              <span id="admin-photo-count" class="block text-lg font-bold text-wine">1,463</span>
+              <span class="text-[9px] text-charcoal-muted uppercase">PHOTOS</span>
+            </div>
+            <div class="p-3 bg-paper-card border border-paper-border rounded-lg flex flex-col justify-center items-center">
+              <span class="inline-flex items-center space-x-1 text-emerald-600 font-bold text-xs">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>LIVE</span>
+              </span>
+              <span class="text-[9px] text-charcoal-muted uppercase mt-1">CAMERA</span>
+            </div>
+          </div>
+
+          <!-- Printable QR Code Section -->
+          <div class="p-5 bg-paper-card border border-paper-border rounded-xl text-center space-y-3">
+            <p class="font-mono text-xs uppercase tracking-wider text-charcoal-muted">EVENT QR CODE</p>
+            <div class="w-36 h-36 mx-auto bg-white p-2 border border-stone-200 rounded-lg flex items-center justify-center shadow-inner">
+              <!-- Inline Stylized QR code SVG mockup -->
+              <svg class="w-full h-full" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="100" height="100" fill="white"/>
+                <path d="M10 10H40V40H10V10ZM15 15V35H35V15H15Z" fill="#262422"/>
+                <path d="M20 20H30V30H20V20Z" fill="#8C2D27"/>
+                <path d="M60 10H90V40H60V10ZM65 15V35H85V15H65Z" fill="#262422"/>
+                <path d="M70 20H80V30H70V20Z" fill="#8C2D27"/>
+                <path d="M10 60H40V90H10V60ZM15 65V85H35V65H15Z" fill="#262422"/>
+                <path d="M20 70H30V80H20V70Z" fill="#8C2D27"/>
+                <path d="M50 10H55V25H50V10ZM55 35H60V50H55V35ZM70 50H85V55H70V50ZM50 60H65V75H50V60ZM80 60H90V90H80V60ZM60 80H75V90H60V80Z" fill="#262422"/>
+              </svg>
+            </div>
+            <p class="font-serif text-sm text-charcoal">Gino + Gabby's Wedding Camera</p>
+            <div class="flex space-x-2 pt-1">
+              <button onclick="simulateToast('QR Code saved to downloads')" class="flex-1 py-2 bg-paper-border/60 hover:bg-paper-border text-charcoal font-mono text-[11px] rounded-lg">
+                DOWNLOAD QR
+              </button>
+              <button onclick="simulateToast('Link copied to clipboard!')" class="flex-1 py-2 bg-paper-border/60 hover:bg-paper-border text-charcoal font-mono text-[11px] rounded-lg">
+                COPY LINK
+              </button>
+            </div>
+          </div>
+
+          <!-- Wedding Roll Controls & Filter Tabs -->
+          <div class="space-y-3">
+            <div class="flex justify-between items-center font-mono text-xs">
+              <span class="font-bold text-charcoal uppercase">WEDDING ROLL PREVIEW</span>
+              <span class="text-wine text-[11px]">SORT BY TIME</span>
+            </div>
+
+            <!-- Tab Buttons -->
+            <div class="grid grid-cols-4 gap-1 font-mono text-[10px] text-center">
+              <button class="py-1.5 bg-wine text-paper rounded">ALL PHOTOS</button>
+              <button class="py-1.5 bg-paper-border/50 text-charcoal rounded hover:bg-paper-border">BY GUEST</button>
+              <button class="py-1.5 bg-paper-border/50 text-charcoal rounded hover:bg-paper-border">HIDDEN</button>
+              <button class="py-1.5 bg-paper-border/50 text-charcoal rounded hover:bg-paper-border">FAVORITES</button>
+            </div>
+
+            <!-- Download All Action Button -->
+            <button onclick="simulateToast('Preparing high-resolution ZIP download...')" class="w-full py-3 bg-wine hover:bg-[#78241f] text-paper font-sans text-xs tracking-wider uppercase font-medium rounded-xl shadow transition flex items-center justify-center space-x-2">
+              <i class="fa-solid fa-file-zipper"></i>
+              <span>DOWNLOAD ALL PHOTOS (HIGH-RES)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="pt-3 border-t border-paper-border text-center">
+          <p class="font-mono text-[10px] text-charcoal-muted">THE WEDDING CAMERA DASHBOARD · GINO + GABBY</p>
+        </div>
+      </section>
+
+      <!-- Toast Notification Box -->
+      <div id="toast-msg" class="absolute top-16 left-1/2 transform -translate-x-1/2 bg-charcoal text-paper font-mono text-xs px-4 py-2.5 rounded-full shadow-xl z-50 opacity-0 pointer-events-none transition-all duration-300 flex items-center space-x-2 border border-paper-border">
+        <i class="fa-solid fa-circle-check text-amber-300 text-sm"></i>
+        <span id="toast-text">Message</span>
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    /* Global Application State */
+    const appState = {
+      guestName: 'Sarah Miller',
+      shotsLeft: 18,
+      cameraFacing: 'BACK',
+      flashOn: true,
+      currentSceneIndex: 0,
+      capturedTempPhoto: null,
+      filterMode: 'all',
+      // Simulated realistic wedding photographs captured by guests
+      photos: [
+        {
+          id: 1,
+          url: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80',
+          author: 'GABBY',
+          time: '8:47 PM',
+          timestamp: '10.01.26 — 8:47 PM',
+          likes: 12
+        },
+        {
+          id: 2,
+          url: 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=800&q=80',
+          author: 'GINO',
+          time: '9:12 PM',
+          timestamp: '10.01.26 — 9:12 PM',
+          likes: 8
+        },
+        {
+          id: 3,
+          url: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&w=800&q=80',
+          author: 'MARCUS (BEST MAN)',
+          time: '9:35 PM',
+          timestamp: '10.01.26 — 9:35 PM',
+          likes: 24
+        },
+        {
+          id: 4,
+          url: 'https://images.unsplash.com/photo-1527529482837-4698179dc6ce?auto=format&fit=crop&w=800&q=80',
+          author: 'CHLOE',
+          time: '10:04 PM',
+          timestamp: '10.01.26 — 10:04 PM',
+          likes: 15
+        },
+        {
+          id: 5,
+          url: 'https://images.unsplash.com/photo-1532712938310-34cb3982ef74?auto=format&fit=crop&w=800&q=80',
+          author: 'AUNT ELENA',
+          time: '10:18 PM',
+          timestamp: '10.01.26 — 10:18 PM',
+          likes: 19
+        },
+        {
+          id: 6,
+          url: 'https://images.unsplash.com/photo-1520854221256-17451cc331bf?auto=format&fit=crop&w=800&q=80',
+          author: 'LIAM & MIA',
+          time: '10:45 PM',
+          timestamp: '10.01.26 — 10:45 PM',
+          likes: 31
+        }
+      ],
+      // Camera simulator predefined wedding scenes
+      scenes: [
+        {
+          title: 'DANCE FLOOR FLASH',
+          url: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80'
+        },
+        {
+          title: 'TABLE TOAST & WINE',
+          url: 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=800&q=80'
+        },
+        {
+          title: 'BRIDE & GROOM LAUGH',
+          url: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&w=800&q=80'
+        },
+        {
+          title: 'LATE NIGHT SPARKLERS',
+          url: 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?auto=format&fit=crop&w=800&q=80'
+        },
+        {
+          title: 'WEDDING CAKE CUTTING',
+          url: 'https://images.unsplash.com/photo-1532712938310-34cb3982ef74?auto=format&fit=crop&w=800&q=80'
+        }
+      ]
+    };
+
+    /* Web Audio API Sound Synthesizer (Realistic Mechanical Shutter & Flash Sound) */
+    function playCameraAudio() {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+
+        // Mechanical Shutter Click Noise
+        const bufferSize = ctx.sampleRate * 0.12;
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+
+        const noise = ctx.createBufferSource();
+        noise.buffer = buffer;
+
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 1200;
+
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.8, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(ctx.destination);
+
+        noise.start();
+      } catch(e) {
+        // Fallback quiet if audio context restricted
+      }
+    }
+
+    /* Screen Navigation Logic */
+    function navigateTo(screenId) {
+      document.querySelectorAll('.app-screen').forEach(screen => {
+        screen.classList.add('hidden');
+        screen.classList.remove('flex');
+      });
+
+      const target = document.getElementById(screenId);
+      if (target) {
+        target.classList.remove('hidden');
+        target.classList.add('flex');
+      }
+
+      // If opening gallery, refresh grid
+      if (screenId === 'screen-gallery') {
+        renderGalleryGrid();
+      }
+    }
+
+    /* Save Name From Screen 2 */
+    function saveGuestName() {
+      const first = document.getElementById('input-first-name').value.trim() || 'Guest';
+      const last = document.getElementById('input-last-name').value.trim() || '';
+      appState.guestName = `${first} ${last}`.trim();
+      
+      simulateToast(`Welcome, ${first}! Camera ready.`);
+      navigateTo('screen-camera');
+    }
+
+    /* Camera Switcher Controls */
+    function cycleCameraScene() {
+      appState.currentSceneIndex = (appState.currentSceneIndex + 1) % appState.scenes.length;
+      const currentScene = appState.scenes[appState.currentSceneIndex];
+      
+      const img = document.getElementById('camera-preview-img');
+      img.src = currentScene.url;
+      document.getElementById('camera-scene-title').textContent = `SCENE: ${currentScene.title}`;
+    }
+
+    function toggleCameraFacing() {
+      appState.cameraFacing = appState.cameraFacing === 'BACK' ? 'FRONT' : 'BACK';
+      document.getElementById('camera-facing-label').textContent = appState.cameraFacing;
+      simulateToast(`Switched to ${appState.cameraFacing} camera`);
+    }
+
+    function toggleFlash() {
+      appState.flashOn = !appState.flashOn;
+      const label = document.getElementById('flash-toggle-text');
+      const flashLabel = document.getElementById('flash-label');
+      const icon = document.getElementById('flash-icon');
+
+      if (appState.flashOn) {
+        label.textContent = 'AUTO';
+        flashLabel.textContent = 'FLASH ON';
+        icon.className = 'fa-solid fa-bolt text-yellow-400';
+      } else {
+        label.textContent = 'OFF';
+        flashLabel.textContent = 'FLASH OFF';
+        icon.className = 'fa-solid fa-bolt-slash text-gray-400';
+      }
+    }
+
+    /* Take Photo Flow (Screen 3 -> Screen 4) */
+    function takePhoto() {
+      if (appState.shotsLeft <= 0) {
+        simulateToast('No shots left on this roll!');
+        return;
+      }
+
+      // Audio feedback
+      playCameraAudio();
+
+      // Trigger Flash Overlay effect if flash active
+      if (appState.flashOn) {
+        const flash = document.getElementById('flash-effect');
+        flash.classList.add('active');
+        setTimeout(() => flash.classList.remove('active'), 400);
+      }
+
+      // Decrement Counter
+      appState.shotsLeft--;
+      document.getElementById('shots-counter').textContent = `${appState.shotsLeft} SHOTS LEFT`;
+      document.getElementById('film-counter-num').textContent = String(25 - appState.shotsLeft).padStart(2, '0');
+
+      // Store current preview image as captured photo
+      const currentScene = appState.scenes[appState.currentSceneIndex];
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      appState.capturedTempPhoto = {
+        id: Date.now(),
+        url: currentScene.url,
+        author: appState.guestName.toUpperCase(),
+        time: timeStr,
+        timestamp: `10.01.26 — ${timeStr}`,
+        likes: 1
+      };
+
+      // Navigate to Developing Screen (Screen 4)
+      navigateTo('screen-developing');
+
+      // Setup developing view
+      const photoImg = document.getElementById('developed-photo-img');
+      const authorLabel = document.getElementById('captured-by-label');
+      const timeLabel = document.getElementById('captured-time-label');
+      const statusText = document.getElementById('developing-status-text');
+      const previewActions = document.getElementById('preview-actions');
+
+      photoImg.src = appState.capturedTempPhoto.url;
+      photoImg.classList.remove('developing-active');
+      
+      // Force reflow for animation restart
+      void photoImg.offsetWidth;
+      photoImg.classList.add('developing-active');
+
+      authorLabel.textContent = `BY ${appState.capturedTempPhoto.author}`;
+      timeLabel.textContent = timeStr;
+
+      statusText.classList.remove('hidden');
+      previewActions.classList.add('hidden');
+
+      // After 2.8 seconds, finish developing
+      setTimeout(() => {
+        statusText.classList.add('hidden');
+        previewActions.classList.remove('hidden');
+      }, 2800);
+    }
+
+    /* Retake or Keep Photo */
+    function retakePhoto() {
+      appState.shotsLeft = Math.min(25, appState.shotsLeft + 1);
+      document.getElementById('shots-counter').textContent = `${appState.shotsLeft} SHOTS LEFT`;
+      navigateTo('screen-camera');
+    }
+
+    function keepPhoto() {
+      if (appState.capturedTempPhoto) {
+        appState.photos.unshift(appState.capturedTempPhoto);
+        simulateToast('Photo added to shared wedding roll!');
+      }
+      navigateTo('screen-gallery');
+    }
+
+    /* Shared Wedding Roll (Screen 5 Gallery) Logic */
+    function filterGallery(mode) {
+      appState.filterMode = mode;
+      renderGalleryGrid();
+    }
+
+    function renderGalleryGrid() {
+      const container = document.getElementById('gallery-grid');
+      document.getElementById('total-photos-count').textContent = appState.photos.length;
+      document.getElementById('admin-photo-count').textContent = (1463 + appState.photos.length - 6).toLocaleString();
+
+      let displayedPhotos = appState.photos;
+      if (appState.filterMode === 'mine') {
+        displayedPhotos = appState.photos.filter(p => p.author === appState.guestName.toUpperCase());
+      }
+
+      if (displayedPhotos.length === 0) {
+        container.innerHTML = `
+          <div class="col-span-2 py-12 text-center text-charcoal-muted font-mono text-xs">
+            <i class="fa-solid fa-camera-retro text-2xl mb-2 text-wine/50 block"></i>
+            No photos found in this view.<br>Tap "Take a Photo" to start!
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = displayedPhotos.map((photo, index) => {
+        const rotationClass = index % 2 === 0 ? 'rotate-[-1deg]' : 'rotate-[1deg]';
+        return `
+          <div onclick="openPhotoDetail(${photo.id})" class="polaroid-frame p-2 rounded-sm cursor-pointer ${rotationClass}">
+            <div class="aspect-[4/3] bg-stone-800 overflow-hidden rounded-sm relative">
+              <img src="${photo.url}" alt="Wedding roll photo" class="w-full h-full object-cover disposable-film-filter">
+              <span class="absolute bottom-1 right-1 date-stamp text-[9px]">10.01.26</span>
+            </div>
+            <div class="pt-2 font-mono text-[10px] flex justify-between items-center text-charcoal">
+              <span class="font-bold truncate max-w-[90px]">${photo.author}</span>
+              <span class="text-charcoal-muted text-[9px]">${photo.time}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    /* Open Individual Photo Detail (Screen 6) */
+    function openPhotoDetail(photoId) {
+      const photo = appState.photos.find(p => p.id === photoId);
+      if (!photo) return;
+
+      document.getElementById('detail-photo-img').src = photo.url;
+      document.getElementById('detail-photo-author').textContent = photo.author;
+      document.getElementById('detail-photo-time').textContent = photo.timestamp;
+
+      navigateTo('screen-detail');
+    }
+
+    function downloadDetailPhoto() {
+      simulateToast('Photo saved to your camera roll!');
+    }
+
+    /* Helper Toast Notification */
+    function simulateToast(msg) {
+      const toast = document.getElementById('toast-msg');
+      const text = document.getElementById('toast-text');
+      text.textContent = msg;
+
+      toast.classList.remove('opacity-0', 'pointer-events-none');
+      toast.classList.add('opacity-100');
+
+      setTimeout(() => {
+        toast.classList.remove('opacity-100');
+        toast.classList.add('opacity-0', 'pointer-events-none');
+      }, 2500);
+    }
+
+    /* Initialize Application on DOM Ready */
+    window.addEventListener('DOMContentLoaded', () => {
+      // Preload initial gallery view
+      renderGalleryGrid();
+    });
+  </script>
+</body>
+</html>

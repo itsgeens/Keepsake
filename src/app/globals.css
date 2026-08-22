@@ -1,0 +1,112 @@
+@import url("https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Courier+Prime:wght@400;700&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --color-paper: #faf7f2;
+  --color-paper-card: #fffdf9;
+  --color-paper-border: #e8e2d8;
+  --color-charcoal: #262422;
+  --color-charcoal-muted: #6e6a63;
+  --color-wine: #8c2d27;
+  --color-wine-light: #faf0ef;
+  --color-gold: #d4af37;
+  --color-stamp-yellow: #e29d12;
+
+  --font-serif: "Newsreader", Georgia, serif;
+  --font-sans: "Plus Jakarta Sans", sans-serif;
+  --font-mono: "Courier Prime", monospace;
+}
+
+html,
+body {
+  background-color: #ece7df;
+  color: #262422;
+  font-family: var(--font-sans);
+}
+
+.paper-texture {
+  background-color: #faf7f2;
+  background-image: radial-gradient(rgba(38, 36, 34, 0.06) 1px, transparent 1px);
+  background-size: 14px 14px;
+}
+
+.date-stamp {
+  font-family: var(--font-mono);
+  color: #e29d12;
+  text-shadow: 0 0 6px rgba(226, 157, 18, 0.55);
+  letter-spacing: 0.08em;
+}
+
+.polaroid-frame {
+  background: #fffdf9;
+  padding: 10px 10px 0 10px;
+  border: 1px solid #e8e2d8;
+  box-shadow: 0 10px 30px -12px rgba(38, 36, 34, 0.35);
+  transition: transform 0.25s ease;
+}
+
+.polaroid-frame:hover {
+  transform: rotate(-1deg) scale(1.01);
+}
+
+/* Live film look applied to the camera viewfinder (mirrors filmProcessor) */
+.film-filter {
+  filter: grayscale(1) contrast(1.12) brightness(0.98);
+}
+
+.film-vignette {
+  background: radial-gradient(
+    ellipse at center,
+    transparent 52%,
+    rgba(38, 36, 34, 0.45) 100%
+  );
+}
+
+.film-grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+  opacity: 0.07;
+  mix-blend-mode: overlay;
+}
+
+/* Polaroid developing animation — image emerges from a blank, milky sheet */
+@keyframes polaroid-develop {
+  0% {
+    filter: blur(16px) brightness(0.12) contrast(0.5) grayscale(1);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  45% {
+    filter: blur(7px) brightness(0.5) contrast(0.85) grayscale(1);
+  }
+  75% {
+    filter: blur(2px) brightness(0.9) contrast(1.05) grayscale(1);
+  }
+  100% {
+    filter: blur(0) brightness(1) contrast(1.12) grayscale(1);
+    opacity: 1;
+  }
+}
+
+.polaroid-developing {
+  animation: polaroid-develop 2.8s ease-out forwards;
+}
+
+@keyframes polaroid-sheet {
+  0% {
+    opacity: 1;
+  }
+  55% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.polaroid-sheet {
+  background: linear-gradient(135deg, #f4f0e7 0%, #e7e1d5 50%, #f4f0e7 100%);
+  animation: polaroid-sheet 2.8s ease-out forwards;
+}
