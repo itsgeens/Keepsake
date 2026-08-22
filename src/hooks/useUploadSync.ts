@@ -14,6 +14,10 @@ export function useUploadSync(eventId?: string, token?: string) {
   const [syncing, setSyncing] = useState(false);
   const syncInFlight = useRef(false);
   const supabase = useRef(createClient());
+  // Waiters that resolve when a specific queued photo finishes uploading.
+  const waitersRef = useRef(
+    new Map<string, { resolve: () => void; reject: (e: Error) => void }>(),
+  );
 
   const refreshCount = useCallback(async () => {
     const items = await getPendingPhotos(eventId);
@@ -64,12 +68,22 @@ export function useUploadSync(eventId?: string, token?: string) {
         if (dbErr) throw dbErr;
 
         await removePhoto(item.id);
+        const waiter = waitersRef.current.get(item.id);
+        if (waiter) {
+          waiter.resolve();
+          waitersRef.current.delete(item.id);
+        }
       } catch (e) {
         await markPhotoStatus(
           item.id,
           "failed",
           e instanceof Error ? e.message : "upload failed",
         );
+        const waiter = waitersRef.current.get(item.id);
+        if (waiter) {
+          waiter.reject(e instanceof Error ? e : new Error("upload failed"));
+          waitersRef.current.delete(item.id);
+        }
       }
     },
     [],
@@ -89,5 +103,13 @@ export function useUploadSync(eventId?: string, token?: string) {
     };
   }, [refreshCount, sync]);
 
-  return { pendingCount, syncing, sync };
+  // Resolve when the queued photo with `id` has been uploaded (or reject on
+  // failure). The waiter must be registered before the photo is enqueued.
+  const waitForUpload = useCallback((id: string) => {
+    return new Promise<void>((resolve, reject) => {
+      waitersRef.current.set(id, { resolve, reject });
+    });
+  }, []);
+
+  return { pendingCount, syncing, sync, waitForUpload };
 }

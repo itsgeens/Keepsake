@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Viewfinder from "@/components/camera/Viewfinder";
 import DevelopingModal from "@/components/camera/DevelopingModal";
+import UploadingScreen from "@/components/camera/UploadingScreen";
 import { playShutterSound } from "@/lib/audio/shutterSound";
 import { fetchEventByToken } from "@/lib/supabase/events";
 import { processFilmPhoto, type ProcessedPhoto } from "@/lib/photo/filmProcessor";
@@ -38,7 +39,7 @@ export default function ShootPage() {
   const { session, setFilmStyle, decrementShots, incrementShots } =
     useGuestSession(token);
   const [event, setEvent] = useState<EventRow | null>(null);
-  useUploadSync(event?.id, token);
+  const { waitForUpload, sync } = useUploadSync(event?.id, token);
   const [coupleName, setCoupleName] = useState("GINO + GABBY");
   const [eventDate, setEventDate] = useState("10.01.26");
 
@@ -60,6 +61,7 @@ export default function ShootPage() {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [processed, setProcessed] = useState<ProcessedPhoto | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const startCamera = useCallback(
     async (mode: "user" | "environment") => {
@@ -228,24 +230,39 @@ export default function ShootPage() {
   }
 
   async function handleKeep() {
-    if (processed && session && event) {
-      const id =
-        typeof crypto !== "undefined" && "randomUUID" in crypto
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      await enqueuePhoto({
-        id,
-        eventId: event.id,
-        token,
-        guestId: session.guestId,
-        guestName: session.fullName,
-        processedBlob: processed.blob,
-        originalBlob: null,
-        capturedAt: new Date().toISOString(),
-        status: "pending",
-      });
-    }
+    if (!processed || !session || !event) return;
+    const id =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+    // Register the waiter BEFORE enqueueing so we don't miss the completion.
+    const uploadDone = waitForUpload(id);
+    await enqueuePhoto({
+      id,
+      eventId: event.id,
+      token,
+      guestId: session.guestId,
+      guestName: session.fullName,
+      processedBlob: processed.blob,
+      originalBlob: null,
+      capturedAt: new Date().toISOString(),
+      status: "pending",
+    });
+    // Kick off an immediate sync so the photo uploads without waiting for the
+    // next 8s interval, then wait until it has actually landed in storage + DB.
+    void sync();
     setShowModal(false);
+    setUploading(true);
+
+    const minDelay = new Promise((r) => setTimeout(r, 2400));
+    const timeout = new Promise((r) => setTimeout(r, 25000));
+    await Promise.race([
+      Promise.all([uploadDone.catch(() => {}), minDelay]),
+      timeout,
+    ]);
+
+    setUploading(false);
     setCapturedImage(null);
     setProcessed(null);
     router.push(`/camera/${token}/roll`);
@@ -307,6 +324,8 @@ export default function ShootPage() {
         onKeep={handleKeep}
         onRetake={handleRetake}
       />
+
+      <UploadingScreen open={uploading} image={capturedImage} />
     </>
   );
 }
