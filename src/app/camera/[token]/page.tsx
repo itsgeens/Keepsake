@@ -16,21 +16,49 @@ export default function WelcomePage() {
   const [event, setEvent] = useState<EventRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const configured = !!(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
 
   useEffect(() => {
     if (getStoredSession(token)) {
       router.replace(`/camera/${token}/shoot`);
       return;
     }
-    fetchEventByToken(token).then((data) => {
-      if (!data) {
-        setNotFound(true);
-      } else {
-        setEvent(data);
-      }
-      setLoading(false);
-    });
+    let active = true;
+    setLoading(true);
+    fetchEventByToken(token)
+      .then((data) => {
+        if (!active) return;
+        if (!data) setNotFound(true);
+        else setEvent(data);
+      })
+      .catch(() => {
+        if (active) setNotFound(true);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [token, router]);
+
+  if (!configured) {
+    return (
+      <main className="paper-texture flex min-h-full flex-col items-center justify-center gap-4 px-6 py-16 text-center">
+        <h1 className="font-serif text-3xl text-charcoal">
+          Configuration error
+        </h1>
+        <p className="font-sans text-sm text-charcoal-muted">
+          Supabase environment variables are missing. Add
+          NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel
+          and redeploy.
+        </p>
+      </main>
+    );
+  }
 
   if (notFound) {
     return (
