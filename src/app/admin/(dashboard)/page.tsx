@@ -31,12 +31,14 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     fetch("/api/admin/events")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.error) setError(d.error);
-        else setEvents(d.events ?? []);
+      .then(async (r) => {
+        const d = await r.json().catch(() => null);
+        if (!r.ok || !d || d.error) {
+          throw new Error(d?.error ?? `Request failed (${r.status})`);
+        }
+        setEvents(d.events ?? []);
       })
-      .catch(() => setError("Failed to load events."))
+      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load events."))
       .finally(() => setLoading(false));
   }, []);
 

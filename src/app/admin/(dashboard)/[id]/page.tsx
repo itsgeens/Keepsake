@@ -34,17 +34,17 @@ export default function ManageEventPage() {
 
   useEffect(() => {
     fetch(`/api/admin/events/${id}`)
-      .then((r) => r.json())
-      .then((d) => {
-        setOrigin(window.location.origin);
-        if (d.error) setError(d.error);
-        else {
-          setEvent(d.event);
-          setStatus(d.event.status);
-          setLimit(d.event.guest_photo_limit);
+      .then(async (r) => {
+        const d = await r.json().catch(() => null);
+        if (!r.ok || !d || d.error) {
+          throw new Error(d?.error ?? `Request failed (${r.status})`);
         }
+        setOrigin(window.location.origin);
+        setEvent(d.event);
+        setStatus(d.event.status);
+        setLimit(d.event.guest_photo_limit);
       })
-      .catch(() => setError("Failed to load event."))
+      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load event."))
       .finally(() => setLoading(false));
   }, [id]);
 

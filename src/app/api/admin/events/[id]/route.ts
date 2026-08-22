@@ -11,23 +11,30 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const { id } = await params;
-  const supabase = createAdminClient();
-  const { data: event, error } = await supabase
-    .from("events")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    const supabase = createAdminClient();
+    const { data: event, error } = await supabase
+      .from("events")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    if (!event) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    const { count } = await supabase
+      .from("photos")
+      .select("*", { count: "exact", head: true })
+      .eq("event_id", id);
+    return NextResponse.json({ event: { ...event, photo_count: count ?? 0 } });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Server error" },
+      { status: 500 },
+    );
   }
-  if (!event) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-  const { count } = await supabase
-    .from("photos")
-    .select("*", { count: "exact", head: true })
-    .eq("event_id", id);
-  return NextResponse.json({ event: { ...event, photo_count: count ?? 0 } });
 }
 
 export async function PATCH(
@@ -38,8 +45,9 @@ export async function PATCH(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const { id } = await params;
-  const body = await req.json().catch(() => ({}));
-  const updates: Partial<EventRow> = {};
+  try {
+    const body = await req.json().catch(() => ({}));
+    const updates: Partial<EventRow> = {};
   if (body.guest_photo_limit !== undefined) {
     const n = Number(body.guest_photo_limit);
     if (!Number.isFinite(n) || n < 1) {
@@ -78,4 +86,10 @@ export async function PATCH(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   return NextResponse.json({ event: data });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Server error" },
+      { status: 500 },
+    );
+  }
 }

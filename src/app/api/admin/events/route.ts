@@ -18,33 +18,41 @@ export async function GET(req: NextRequest) {
   if (!isValidAdminToken(req.cookies.get(ADMIN_COOKIE)?.value)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const supabase = createAdminClient();
-  const { data: events, error } = await supabase
-    .from("events")
-    .select("*")
-    .order("created_at", { ascending: false });
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    const supabase = createAdminClient();
+    const { data: events, error } = await supabase
+      .from("events")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    const { data: photoRows } = await supabase
+      .from("photos")
+      .select("event_id");
+    const counts: Record<string, number> = {};
+    for (const r of photoRows ?? []) {
+      counts[r.event_id] = (counts[r.event_id] ?? 0) + 1;
+    }
+    const result = (events ?? []).map((e: EventRow) => ({
+      ...e,
+      photo_count: counts[e.id] ?? 0,
+    }));
+    return NextResponse.json({ events: result });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Server error" },
+      { status: 500 },
+    );
   }
-  const { data: photoRows } = await supabase
-    .from("photos")
-    .select("event_id");
-  const counts: Record<string, number> = {};
-  for (const r of photoRows ?? []) {
-    counts[r.event_id] = (counts[r.event_id] ?? 0) + 1;
-  }
-  const result = (events ?? []).map((e: EventRow) => ({
-    ...e,
-    photo_count: counts[e.id] ?? 0,
-  }));
-  return NextResponse.json({ events: result });
 }
 
 export async function POST(req: NextRequest) {
   if (!isValidAdminToken(req.cookies.get(ADMIN_COOKIE)?.value)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const body = await req.json().catch(() => ({}));
+  try {
+    const body = await req.json().catch(() => ({}));
   const name = String(body.name ?? "").trim();
   const coupleName = String(body.couple_name ?? name).trim() || name;
   const eventDate = String(body.event_date ?? "");
@@ -76,4 +84,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   return NextResponse.json({ event: data });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Server error" },
+      { status: 500 },
+    );
+  }
 }
