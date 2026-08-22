@@ -31,7 +31,8 @@ export default function ShootPage() {
   const token = params.token;
   const router = useRouter();
 
-  const { session, decrementShots, incrementShots } = useGuestSession(token);
+  const { session, setFilmStyle, decrementShots, incrementShots } =
+    useGuestSession(token);
   const [event, setEvent] = useState<EventRow | null>(null);
   useUploadSync(event?.id, token);
   const [coupleName, setCoupleName] = useState("GINO + GABBY");
@@ -114,7 +115,10 @@ export default function ShootPage() {
 
     decrementShots();
     try {
-      const result = await processFilmPhoto(frame, { dateStamp: eventDate });
+      const result = await processFilmPhoto(frame, {
+        dateStamp: eventDate,
+        style: session.filmStyle,
+      });
       setProcessed(result);
       setCapturedImage(result.dataUrl);
     } catch {
@@ -127,7 +131,10 @@ export default function ShootPage() {
     if (!session || session.shotsLeft <= 0) return;
     (async () => {
       try {
-        const result = await processFilmPhoto(file, { dateStamp: eventDate });
+        const result = await processFilmPhoto(file, {
+          dateStamp: eventDate,
+          style: session.filmStyle,
+        });
         decrementShots();
         setProcessed(result);
         setCapturedImage(result.dataUrl);
@@ -190,6 +197,7 @@ export default function ShootPage() {
         shotsLeft={session.shotsLeft}
         coupleName={coupleName}
         eventDate={eventDate}
+        filmStyle={session.filmStyle}
         onFlip={() => {
           const next = facingMode === "environment" ? "user" : "environment";
           setFacingMode(next);
@@ -201,6 +209,26 @@ export default function ShootPage() {
         onShutter={handleShutter}
         onFileSelected={handleFileSelected}
       />
+
+      <div className="flex w-full max-w-md items-center justify-center gap-2">
+        <span className="font-mono text-[10px] uppercase tracking-widest text-charcoal-muted">
+          Film
+        </span>
+        {(["mono", "fuji"] as const).map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => setFilmStyle(s)}
+            className={`rounded-full px-4 py-1.5 font-sans text-[11px] font-semibold uppercase tracking-widest transition-colors ${
+              session.filmStyle === s
+                ? "bg-charcoal text-paper"
+                : "border border-paper-border bg-paper-card text-charcoal-muted"
+            }`}
+          >
+            {s === "mono" ? "Monochrome" : "Retro Color"}
+          </button>
+        ))}
+      </div>
 
       <DevelopingModal
         open={showModal}

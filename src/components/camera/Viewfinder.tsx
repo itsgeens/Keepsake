@@ -8,6 +8,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import type { RefObject } from "react";
+import type { FilmStyle } from "@/lib/photo/filmProcessor";
 
 type FlashMode = "auto" | "off";
 
@@ -21,6 +22,7 @@ interface ViewfinderProps {
   shotsLeft: number;
   coupleName: string;
   eventDate: string;
+  filmStyle: FilmStyle;
   onFlip: () => void;
   onToggleFlash: () => void;
   onShutter: () => void;
@@ -45,6 +47,7 @@ export default function Viewfinder({
   shotsLeft,
   coupleName,
   eventDate,
+  filmStyle,
   onFlip,
   onToggleFlash,
   onShutter,
@@ -70,7 +73,9 @@ export default function Viewfinder({
           autoPlay
           playsInline
           muted
-          className="h-full w-full object-cover film-filter"
+          className={`h-full w-full object-cover ${
+            filmStyle === "fuji" ? "film-filter-fuji" : "film-filter"
+          }`}
           style={{
             transform: facingMode === "user" ? "scaleX(-1)" : undefined,
           }}

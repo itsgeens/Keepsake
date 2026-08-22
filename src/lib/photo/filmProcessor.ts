@@ -1,6 +1,9 @@
+export type FilmStyle = "mono" | "fuji";
+
 export interface FilmOptions {
   maxDimension?: number;
   dateStamp?: string;
+  style?: FilmStyle;
   grainOpacity?: number;
   contrast?: number;
   brightness?: number;
@@ -153,6 +156,48 @@ function applyMonochrome(
   ctx.putImageData(img, 0, 0);
 }
 
+// Retro color film (Fuji-like): muted saturation, warm tone, punchy but deep
+// greens, gentle contrast. Done per-pixel so it works on every browser.
+function applyFuji(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  contrast: number,
+  brightness: number,
+) {
+  const img = ctx.getImageData(0, 0, width, height);
+  const data = img.data;
+  const bOffset = (brightness - 1) * 255;
+  const sat = 0.82; // muted, filmic color
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+
+    let nr = luma + (r - luma) * sat;
+    let ng = luma + (g - luma) * sat;
+    let nb = luma + (b - luma) * sat;
+
+    // Warm tone (lift reds, pull blues)
+    nr += 14;
+    nb -= 8;
+    // Deep, rich greens
+    ng += 12;
+    if (g > r && g > b) nb -= 4; // cool the blues where green dominates
+
+    // Contrast + brightness
+    nr = (nr - 128) * contrast + 128 + bOffset;
+    ng = (ng - 128) * contrast + 128 + bOffset;
+    nb = (nb - 128) * contrast + 128 + bOffset;
+
+    data[i] = nr < 0 ? 0 : nr > 255 ? 255 : nr;
+    data[i + 1] = ng < 0 ? 0 : ng > 255 ? 255 : ng;
+    data[i + 2] = nb < 0 ? 0 : nb > 255 ? 255 : nb;
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
 export interface ProcessedPhoto {
   blob: Blob;
   dataUrl: string;
@@ -175,13 +220,16 @@ export async function processFilmPhoto(
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("2D context unavailable");
 
-  // 1. Draw the source, then convert to monochrome + contrast/brightness by
-  //    manipulating pixels directly. We deliberately avoid ctx.filter so the
-  //    saved file is correct even on browsers where Canvas filter is
-  //    unsupported (e.g. older iOS Safari). The live preview uses a CSS filter,
-  //    which works everywhere.
+  // 1. Draw the source, then convert to the chosen film look by manipulating
+  //    pixels directly. We deliberately avoid ctx.filter so the saved file is
+  //    correct even on browsers where Canvas filter is unsupported (e.g. older
+  //    iOS Safari). The live preview uses a CSS filter, which works everywhere.
   ctx.drawImage(src, 0, 0, dw, dh);
-  applyMonochrome(ctx, dw, dh, opts.contrast, opts.brightness);
+  if (opts.style === "fuji") {
+    applyFuji(ctx, dw, dh, opts.contrast, opts.brightness);
+  } else {
+    applyMonochrome(ctx, dw, dh, opts.contrast, opts.brightness);
+  }
 
   // 2. Procedural film grain (heavier for the grainy B&W look)
   drawGrain(ctx, dw, dh, opts.grainOpacity);

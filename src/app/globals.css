@@ -54,6 +54,11 @@ body {
   filter: grayscale(1) contrast(1.12) brightness(0.98);
 }
 
+/* Live retro-color (Fuji-like) preview: warm, muted, deeper greens */
+.film-filter-fuji {
+  filter: sepia(0.22) saturate(1.05) contrast(1.08) brightness(0.99) hue-rotate(-8deg);
+}
+
 .film-vignette {
   background: radial-gradient(
     ellipse at center,

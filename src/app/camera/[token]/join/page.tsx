@@ -6,6 +6,7 @@ import { fetchEventByToken } from "@/lib/supabase/events";
 import { useGuestSession } from "@/hooks/useGuestSession";
 import { createClient } from "@/lib/supabase/client";
 import type { EventRow } from "@/types/database";
+import type { FilmStyle } from "@/lib/photo/filmProcessor";
 
 export default function JoinPage() {
   const params = useParams<{ token: string }>();
@@ -15,6 +16,7 @@ export default function JoinPage() {
   const [event, setEvent] = useState<EventRow | null>(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [filmStyle, setFilmStyle] = useState<FilmStyle>("mono");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,7 +57,7 @@ export default function JoinPage() {
       return;
     }
 
-    saveSession(first, lastName.trim(), data.id, sessionId);
+    saveSession(first, lastName.trim(), data.id, sessionId, filmStyle);
     router.push(`/camera/${token}/shoot`);
   }
 
@@ -102,6 +104,38 @@ export default function JoinPage() {
             className="w-full rounded-xl border border-paper-border bg-paper-card px-4 py-3 font-sans text-charcoal outline-none focus:border-wine focus:ring-1 focus:ring-wine"
             placeholder="optional"
           />
+        </div>
+
+        <div>
+          <span className="mb-2 block font-sans text-xs font-semibold uppercase tracking-widest text-charcoal-muted">
+            Choose your film
+          </span>
+          <div className="grid grid-cols-2 gap-3">
+            {(
+              [
+                { value: "mono", label: "Monochrome", hint: "B&W grain" },
+                { value: "fuji", label: "Retro Color", hint: "Fuji vibe" },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setFilmStyle(opt.value)}
+                className={`rounded-xl border px-4 py-3 text-left transition-colors ${
+                  filmStyle === opt.value
+                    ? "border-wine bg-wine-light"
+                    : "border-paper-border bg-paper-card"
+                }`}
+              >
+                <span className="block font-sans text-sm font-semibold text-charcoal">
+                  {opt.label}
+                </span>
+                <span className="mt-0.5 block font-mono text-[10px] uppercase tracking-widest text-charcoal-muted">
+                  {opt.hint}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {error && (

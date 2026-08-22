@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { FilmStyle } from "@/lib/photo/filmProcessor";
 
 export interface GuestSession {
   guestId: string;
@@ -7,6 +8,7 @@ export interface GuestSession {
   fullName: string;
   sessionId: string;
   shotsLeft: number;
+  filmStyle: FilmStyle;
 }
 
 function storageKey(token: string) {
@@ -20,7 +22,8 @@ export function useGuestSession(token: string, photoLimit = 25) {
     const raw = localStorage.getItem(storageKey(token));
     if (raw) {
       try {
-        setSession(JSON.parse(raw) as GuestSession);
+        const parsed = JSON.parse(raw) as GuestSession;
+        setSession({ ...parsed, filmStyle: parsed.filmStyle ?? "mono" });
       } catch {
         localStorage.removeItem(storageKey(token));
       }
@@ -32,6 +35,7 @@ export function useGuestSession(token: string, photoLimit = 25) {
     lastName: string,
     guestId: string,
     sessionId?: string,
+    filmStyle: FilmStyle = "mono",
   ) {
     const next: GuestSession = {
       guestId,
@@ -40,10 +44,20 @@ export function useGuestSession(token: string, photoLimit = 25) {
       fullName: `${firstName} ${lastName}`.trim(),
       sessionId: sessionId ?? crypto.randomUUID(),
       shotsLeft: photoLimit,
+      filmStyle,
     };
     localStorage.setItem(storageKey(token), JSON.stringify(next));
     setSession(next);
     return next;
+  }
+
+  function setFilmStyle(filmStyle: FilmStyle) {
+    setSession((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, filmStyle };
+      localStorage.setItem(storageKey(token), JSON.stringify(updated));
+      return updated;
+    });
   }
 
   function decrementShots() {
@@ -69,14 +83,22 @@ export function useGuestSession(token: string, photoLimit = 25) {
     setSession(null);
   }
 
-  return { session, saveSession, decrementShots, incrementShots, clearSession };
+  return {
+    session,
+    saveSession,
+    setFilmStyle,
+    decrementShots,
+    incrementShots,
+    clearSession,
+  };
 }
 
 export function getStoredSession(token: string): GuestSession | null {
   const raw = localStorage.getItem(storageKey(token));
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as GuestSession;
+    const parsed = JSON.parse(raw) as GuestSession;
+    return { ...parsed, filmStyle: parsed.filmStyle ?? "mono" };
   } catch {
     return null;
   }
