@@ -10,7 +10,7 @@ import {
 import type { RefObject } from "react";
 import type { FilmStyle } from "@/lib/photo/filmProcessor";
 
-type FlashMode = "auto" | "off";
+type FlashMode = "on" | "off";
 
 interface ViewfinderProps {
   videoRef: RefObject<HTMLVideoElement | null>;
@@ -23,9 +23,12 @@ interface ViewfinderProps {
   coupleName: string;
   eventDate: string;
   filmStyle: FilmStyle;
+  zoom: number;
   onFlip: () => void;
   onToggleFlash: () => void;
   onToggleFilmStyle: () => void;
+  onZoomIn: () => void;
+  onZoomOut: () => void;
   onShutter: () => void;
   onFileSelected: (file: File) => void;
   onViewRoll?: () => void;
@@ -42,15 +45,18 @@ export default function Viewfinder({
   coupleName,
   eventDate,
   filmStyle,
+  zoom,
   onFlip,
   onToggleFlash,
   onToggleFilmStyle,
+  onZoomIn,
+  onZoomOut,
   onShutter,
   onFileSelected,
   onViewRoll,
 }: ViewfinderProps) {
   return (
-    <div className="flex h-dvh w-full flex-col bg-black">
+    <div className="flex h-dvh w-full flex-col bg-black" style={{ touchAction: "none" }}>
       {/* ─── Viewfinder ─── */}
       <div className="relative flex-1 overflow-hidden">
         <video
@@ -62,7 +68,9 @@ export default function Viewfinder({
             filmStyle === "fuji" ? "film-filter-fuji" : "film-filter"
           }`}
           style={{
-            transform: facingMode === "user" ? "scaleX(-1)" : undefined,
+            transform: `scale(${zoom})${
+              facingMode === "user" ? " scaleX(-1)" : ""
+            }`,
           }}
         />
 
@@ -94,15 +102,40 @@ export default function Viewfinder({
           </span>
         </div>
 
+        {/* Zoom stepper */}
+        <div className="absolute left-4 top-[calc(max(env(safe-area-inset-top),12px)+28px)] flex items-center gap-2 rounded-full bg-black/40 px-2 py-1 backdrop-blur-sm">
+          <button
+            type="button"
+            onClick={onZoomOut}
+            disabled={zoom <= 1}
+            aria-label="Zoom out"
+            className="flex h-6 w-6 items-center justify-center rounded-full text-white/80 disabled:opacity-30"
+          >
+            <span className="text-lg leading-none">−</span>
+          </button>
+          <span className="min-w-[28px] text-center text-[11px] font-medium text-white/80">
+            {zoom.toFixed(1).replace(/\.0$/, "")}×
+          </span>
+          <button
+            type="button"
+            onClick={onZoomIn}
+            disabled={zoom >= 3}
+            aria-label="Zoom in"
+            className="flex h-6 w-6 items-center justify-center rounded-full text-white/80 disabled:opacity-30"
+          >
+            <span className="text-lg leading-none">+</span>
+          </button>
+        </div>
+
         {/* Mid-level controls: flash + focal length (decorative) + flip */}
         <div className="absolute bottom-4 left-0 right-0 flex items-center justify-center gap-6">
           <button
             type="button"
             onClick={onToggleFlash}
-            aria-label="Toggle flash"
+            aria-label={flashMode === "on" ? "Flash on" : "Flash off"}
             className="flex h-8 w-8 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm"
           >
-            {flashMode === "auto" ? (
+            {flashMode === "on" ? (
               <Zap className="h-3.5 w-3.5 text-accent" />
             ) : (
               <ZapOff className="h-3.5 w-3.5 text-white/70" />

@@ -13,16 +13,21 @@ import { enqueuePhoto } from "@/lib/storage/uploadQueue";
 import { formatEventDate } from "@/lib/format";
 import type { EventRow } from "@/types/database";
 
-function captureFrame(video: HTMLVideoElement): HTMLCanvasElement | null {
-  const width = video.videoWidth;
-  const height = video.videoHeight;
-  if (!width || !height) return null;
+function captureFrame(video: HTMLVideoElement, zoom = 1): HTMLCanvasElement | null {
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+  if (!vw || !vh) return null;
+  // Crop the centered region so the captured photo matches the zoomed preview.
+  const sw = vw / zoom;
+  const sh = vh / zoom;
+  const sx = (vw - sw) / 2;
+  const sy = (vh - sh) / 2;
   const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
+  canvas.width = sw;
+  canvas.height = sh;
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
-  ctx.drawImage(video, 0, 0, width, height);
+  ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
   return canvas;
 }
 
@@ -43,10 +48,11 @@ export default function ShootPage() {
   const [facingMode, setFacingMode] = useState<"user" | "environment">(
     "environment",
   );
-  const [flashMode, setFlashMode] = useState<"auto" | "off">("auto");
+  const [flashMode, setFlashMode] = useState<"on" | "off">("off");
   const [flashActive, setFlashActive] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const [cameraError, setCameraError] = useState(false);
+  const [zoom, setZoom] = useState(1);
 
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [processed, setProcessed] = useState<ProcessedPhoto | null>(null);
@@ -107,10 +113,10 @@ export default function ShootPage() {
     playShutterSound();
     triggerFlash();
 
-    const frame =
-      videoRef.current && !cameraError
-        ? captureFrame(videoRef.current)
-        : null;
+  const frame =
+    videoRef.current && !cameraError
+      ? captureFrame(videoRef.current, zoom)
+      : null;
     if (!frame) return;
 
     decrementShots();
@@ -204,11 +210,14 @@ export default function ShootPage() {
           startCamera(next);
         }}
         onToggleFlash={() =>
-          setFlashMode((m) => (m === "auto" ? "off" : "auto"))
+          setFlashMode((m) => (m === "on" ? "off" : "on"))
         }
         onToggleFilmStyle={() =>
           setFilmStyle(session.filmStyle === "mono" ? "fuji" : "mono")
         }
+        zoom={zoom}
+        onZoomIn={() => setZoom((z) => Math.min(3, Math.round((z + 0.5) * 10) / 10))}
+        onZoomOut={() => setZoom((z) => Math.max(1, Math.round((z - 0.5) * 10) / 10))}
         onShutter={handleShutter}
         onFileSelected={handleFileSelected}
         onViewRoll={() => router.push(`/camera/${token}/roll`)}
