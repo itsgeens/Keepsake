@@ -12,8 +12,8 @@ export default function JoinPage() {
   const params = useParams<{ token: string }>();
   const token = params.token;
   const router = useRouter();
-  const { saveSession } = useGuestSession(token);
   const [event, setEvent] = useState<EventRow | null>(null);
+  const { saveSession } = useGuestSession(token, event?.guest_photo_limit ?? 25);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [filmStyle, setFilmStyle] = useState<FilmStyle>("mono");

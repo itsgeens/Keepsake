@@ -36,9 +36,9 @@ export default function ShootPage() {
   const token = params.token;
   const router = useRouter();
 
-  const { session, setFilmStyle, decrementShots, incrementShots } =
-    useGuestSession(token);
   const [event, setEvent] = useState<EventRow | null>(null);
+  const { session, setFilmStyle, decrementShots, incrementShots } =
+    useGuestSession(token, event?.guest_photo_limit ?? 25);
   const { waitForUpload, sync } = useUploadSync(event?.id, token);
   const [coupleName, setCoupleName] = useState("GINO + GABBY");
   const [eventDate, setEventDate] = useState("10.01.26");
@@ -54,6 +54,7 @@ export default function ShootPage() {
   const [cameraError, setCameraError] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [nativeZoom, setNativeZoom] = useState(false);
+  const [zoomMax, setZoomMax] = useState(3);
   const zoomRange = useRef<{ min: number; max: number; step: number } | null>(
     null,
   );
@@ -85,25 +86,31 @@ export default function ShootPage() {
 
         // Feature-detect real hardware capabilities per device.
         const track = stream.getVideoTracks()[0];
-        const caps = (track.getCapabilities?.() as any) ?? {};
+        const caps = track.getCapabilities?.() as
+          | { zoom?: { min?: number; max?: number; step?: number }; torch?: boolean }
+          | undefined;
         const z = caps?.zoom;
-        if (z && typeof z === "object" && "max" in z && z.max > 1) {
+        if (z && typeof z.max === "number" && z.max > 1) {
           zoomRange.current = {
             min: z.min ?? 1,
             max: z.max,
             step: z.step ?? 0.1,
           };
           setNativeZoom(true);
+          setZoomMax(z.max);
         } else {
           zoomRange.current = null;
           setNativeZoom(false);
+          setZoomMax(3);
         }
         setSupportsTorch(!!caps?.torch);
 
         // Apply current torch/zoom only when the device actually supports it.
         if (caps?.torch) {
           track
-            .applyConstraints({ advanced: [{ torch: flashMode === "on" }] } as any)
+            .applyConstraints(
+              { advanced: [{ torch: flashMode === "on" }] } as unknown as MediaTrackConstraints,
+            )
             .catch(() => {});
         }
         if (zoomRange.current) {
@@ -112,7 +119,9 @@ export default function ShootPage() {
             Math.max(zoomRange.current.min, zoom),
           );
           track
-            .applyConstraints({ advanced: [{ zoom: val }] } as any)
+            .applyConstraints(
+              { advanced: [{ zoom: val }] } as unknown as MediaTrackConstraints,
+            )
             .catch(() => {});
         }
 
@@ -153,7 +162,9 @@ export default function ShootPage() {
     const track = streamRef.current?.getVideoTracks()[0];
     if (!track || !supportsTorch) return;
     track
-      .applyConstraints({ advanced: [{ torch: flashMode === "on" }] } as any)
+      .applyConstraints(
+              { advanced: [{ torch: flashMode === "on" }] } as unknown as MediaTrackConstraints,
+            )
       .catch(() => {});
     if (nativeZoom && zoomRange.current) {
       const val = Math.min(
@@ -161,7 +172,9 @@ export default function ShootPage() {
         Math.max(zoomRange.current.min, zoom),
       );
       track
-        .applyConstraints({ advanced: [{ zoom: val }] } as any)
+        .applyConstraints(
+              { advanced: [{ zoom: val }] } as unknown as MediaTrackConstraints,
+            )
         .catch(() => {});
     }
   }, [flashMode, zoom, nativeZoom, supportsTorch]);
@@ -303,10 +316,10 @@ export default function ShootPage() {
         }
         zoom={zoom}
         nativeZoom={nativeZoom}
-        zoomMax={zoomRange.current?.max ?? 3}
+        zoomMax={zoomMax}
         onZoomIn={() =>
           setZoom((z) =>
-            Math.min(zoomRange.current?.max ?? 3, Math.round((z + 0.5) * 10) / 10),
+            Math.min(zoomMax, Math.round((z + 0.5) * 10) / 10),
           )
         }
         onZoomOut={() =>
