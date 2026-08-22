@@ -206,6 +206,9 @@ export default function ShootPage() {
         onToggleFlash={() =>
           setFlashMode((m) => (m === "auto" ? "off" : "auto"))
         }
+        onToggleFilmStyle={() =>
+          setFilmStyle(session.filmStyle === "mono" ? "fuji" : "mono")
+        }
         onShutter={handleShutter}
         onFileSelected={handleFileSelected}
         onViewRoll={() => router.push(`/camera/${token}/roll`)}

@@ -25,6 +25,7 @@ interface ViewfinderProps {
   filmStyle: FilmStyle;
   onFlip: () => void;
   onToggleFlash: () => void;
+  onToggleFilmStyle: () => void;
   onShutter: () => void;
   onFileSelected: (file: File) => void;
   onViewRoll?: () => void;
@@ -43,6 +44,7 @@ export default function Viewfinder({
   filmStyle,
   onFlip,
   onToggleFlash,
+  onToggleFilmStyle,
   onShutter,
   onFileSelected,
   onViewRoll,
@@ -107,9 +109,14 @@ export default function Viewfinder({
             )}
           </button>
 
-          <span className="rounded-full bg-black/40 px-3 py-1 text-[11px] font-medium text-white/80 backdrop-blur-sm">
+          <button
+            type="button"
+            onClick={onToggleFilmStyle}
+            aria-label="Toggle film style"
+            className="rounded-full bg-black/40 px-3 py-1 text-[11px] font-medium text-white/80 backdrop-blur-sm transition-colors hover:bg-black/60"
+          >
             {filmStyle === "mono" ? "B&W" : "Color"}
-          </span>
+          </button>
 
           <button
             type="button"
