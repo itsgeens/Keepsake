@@ -52,7 +52,7 @@ export default function JoinPage() {
       .single();
 
     if (insertError || !data) {
-      setError("Something went wrong joining the camera. Please try again.");
+      setError("Something went wrong. Please try again.");
       setSubmitting(false);
       return;
     }
@@ -61,95 +61,105 @@ export default function JoinPage() {
     router.push(`/camera/${token}/shoot`);
   }
 
+  const filmOptions: { value: FilmStyle; label: string; desc: string }[] = [
+    { value: "mono", label: "B&W Film", desc: "Classic monochrome" },
+    { value: "fuji", label: "Retro Color", desc: "Warm analog tones" },
+  ];
+
   return (
-    <main className="paper-texture flex min-h-full flex-col items-center justify-center gap-10 px-6 py-16">
-      <div className="w-full max-w-sm text-center">
-        <p className="font-sans text-xs uppercase tracking-[0.3em] text-charcoal-muted">
-          Step 1 of 2
-        </p>
-        <h1 className="mt-3 font-serif text-3xl text-charcoal">
-          What should we call you?
-        </h1>
-      </div>
-
-      <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-5">
-        <div>
-          <label
-            htmlFor="firstName"
-            className="mb-2 block font-sans text-xs font-semibold uppercase tracking-widest text-charcoal-muted"
-          >
-            First Name
-          </label>
-          <input
-            id="firstName"
-            value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
-            autoFocus
-            className="w-full rounded-xl border border-paper-border bg-paper-card px-4 py-3 font-sans text-charcoal outline-none focus:border-wine focus:ring-1 focus:ring-wine"
-            placeholder="e.g. Gabby"
-          />
+    <main className="flex min-h-dvh flex-col items-center justify-center bg-surface px-6">
+      <div className="animate-fade-in w-full max-w-sm space-y-8">
+        {/* Header */}
+        <div className="text-center space-y-2">
+          <p className="text-xs font-medium text-text-tertiary tracking-wide uppercase">
+            Step 1 of 2
+          </p>
+          <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
+            What's your name?
+          </h1>
+          <p className="text-sm text-text-secondary">
+            So everyone knows who captured each moment
+          </p>
         </div>
 
-        <div>
-          <label
-            htmlFor="lastName"
-            className="mb-2 block font-sans text-xs font-semibold uppercase tracking-widest text-charcoal-muted"
-          >
-            Last Name
-          </label>
-          <input
-            id="lastName"
-            value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
-            className="w-full rounded-xl border border-paper-border bg-paper-card px-4 py-3 font-sans text-charcoal outline-none focus:border-wine focus:ring-1 focus:ring-wine"
-            placeholder="optional"
-          />
-        </div>
-
-        <div>
-          <span className="mb-2 block font-sans text-xs font-semibold uppercase tracking-widest text-charcoal-muted">
-            Choose your film
-          </span>
-          <div className="grid grid-cols-2 gap-3">
-            {(
-              [
-                { value: "mono", label: "Monochrome", hint: "B&W grain" },
-                { value: "fuji", label: "Retro Color", hint: "Fuji vibe" },
-              ] as const
-            ).map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setFilmStyle(opt.value)}
-                className={`rounded-xl border px-4 py-3 text-left transition-colors ${
-                  filmStyle === opt.value
-                    ? "border-wine bg-wine-light"
-                    : "border-paper-border bg-paper-card"
-                }`}
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="space-y-3">
+            <div>
+              <label
+                htmlFor="firstName"
+                className="mb-1.5 block text-xs font-medium text-text-secondary uppercase tracking-wide"
               >
-                <span className="block font-sans text-sm font-semibold text-charcoal">
-                  {opt.label}
-                </span>
-                <span className="mt-0.5 block font-mono text-[10px] uppercase tracking-widest text-charcoal-muted">
-                  {opt.hint}
-                </span>
-              </button>
-            ))}
+                First Name
+              </label>
+              <input
+                id="firstName"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                autoFocus
+                className="w-full rounded-xl border border-separator bg-surface-secondary px-4 py-3.5 text-[15px] text-text-primary outline-none placeholder:text-text-tertiary focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all"
+                placeholder="e.g. Gabby"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="lastName"
+                className="mb-1.5 block text-xs font-medium text-text-secondary uppercase tracking-wide"
+              >
+                Last Name
+              </label>
+              <input
+                id="lastName"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                className="w-full rounded-xl border border-separator bg-surface-secondary px-4 py-3.5 text-[15px] text-text-primary outline-none placeholder:text-text-tertiary focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all"
+                placeholder="optional"
+              />
+            </div>
           </div>
-        </div>
 
-        {error && (
-          <p className="font-sans text-sm text-wine">{error}</p>
-        )}
+          {/* Film style picker */}
+          <div>
+            <span className="mb-2 block text-xs font-medium text-text-secondary uppercase tracking-wide">
+              Choose your film
+            </span>
+            <div className="grid grid-cols-2 gap-2">
+              {filmOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setFilmStyle(opt.value)}
+                  className={`rounded-xl border px-4 py-3 text-left transition-all ${
+                    filmStyle === opt.value
+                      ? "border-accent bg-accent-soft ring-2 ring-accent/20"
+                      : "border-separator bg-surface-secondary hover:bg-surface-tertiary"
+                  }`}
+                >
+                  <span className="block text-sm font-semibold text-text-primary">
+                    {opt.label}
+                  </span>
+                  <span className="block text-xs text-text-tertiary mt-0.5">
+                    {opt.desc}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
 
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full rounded-full bg-wine px-8 py-3.5 font-sans text-sm font-semibold uppercase tracking-widest text-paper transition-opacity hover:opacity-90 disabled:opacity-50"
-        >
-          {submitting ? "Joining…" : "Start Shooting"}
-        </button>
-      </form>
+          {error && (
+            <p className="text-sm text-danger">{error}</p>
+          )}
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full rounded-xl bg-text-primary px-6 py-4 text-[15px] font-semibold text-white transition-opacity hover:opacity-80 active:opacity-70 disabled:opacity-30"
+          >
+            {submitting ? "Joining…" : "Start Shooting"}
+          </button>
+        </form>
+      </div>
     </main>
   );
 }

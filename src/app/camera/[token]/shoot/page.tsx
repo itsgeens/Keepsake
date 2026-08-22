@@ -99,7 +99,7 @@ export default function ShootPage() {
   function triggerFlash() {
     if (flashMode === "off") return;
     setFlashActive(true);
-    setTimeout(() => setFlashActive(false), 220);
+    setTimeout(() => setFlashActive(false), 150);
   }
 
   async function handleShutter() {
@@ -186,7 +186,7 @@ export default function ShootPage() {
   if (!session) return null;
 
   return (
-    <main className="paper-texture flex min-h-full flex-col items-center justify-center gap-6 px-4 py-10">
+    <>
       <Viewfinder
         videoRef={videoRef}
         facingMode={facingMode}
@@ -208,27 +208,8 @@ export default function ShootPage() {
         }
         onShutter={handleShutter}
         onFileSelected={handleFileSelected}
+        onViewRoll={() => router.push(`/camera/${token}/roll`)}
       />
-
-      <div className="flex w-full max-w-md items-center justify-center gap-2">
-        <span className="font-mono text-[10px] uppercase tracking-widest text-charcoal-muted">
-          Film
-        </span>
-        {(["mono", "fuji"] as const).map((s) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => setFilmStyle(s)}
-            className={`rounded-full px-4 py-1.5 font-sans text-[11px] font-semibold uppercase tracking-widest transition-colors ${
-              session.filmStyle === s
-                ? "bg-charcoal text-paper"
-                : "border border-paper-border bg-paper-card text-charcoal-muted"
-            }`}
-          >
-            {s === "mono" ? "Monochrome" : "Retro Color"}
-          </button>
-        ))}
-      </div>
 
       <DevelopingModal
         open={showModal}
@@ -237,6 +218,6 @@ export default function ShootPage() {
         onKeep={handleKeep}
         onRetake={handleRetake}
       />
-    </main>
+    </>
   );
 }

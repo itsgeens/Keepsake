@@ -1,5 +1,6 @@
 "use client";
 
+import { Download, X } from "lucide-react";
 import { formatTime } from "@/lib/format";
 
 export interface RollPhoto {
@@ -37,44 +38,57 @@ export default function PhotoDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-charcoal/85 p-6"
+      className="fixed inset-0 z-50 flex flex-col justify-between bg-black/95 p-4 sm:p-6 backdrop-blur-md"
       onClick={onClose}
     >
+      {/* Top bar with close button */}
+      <div className="flex items-center justify-between pt-[max(env(safe-area-inset-top),8px)]">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close photo view"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white/90 backdrop-blur-sm transition-colors hover:bg-white/20 active:scale-95"
+        >
+          <X className="h-5 w-5" />
+        </button>
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            savePhoto(photo.url, `wedding-photo-${photo.id}.jpg`);
+          }}
+          className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/20 active:scale-95"
+        >
+          <Download className="h-3.5 w-3.5" />
+          <span>Save</span>
+        </button>
+      </div>
+
+      {/* Main photo container */}
       <div
-        className="polaroid-frame w-full max-w-sm"
+        className="animate-fade-in-scale my-auto flex max-h-[75vh] w-full max-w-lg items-center justify-center self-center overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={photo.url}
           alt={`Photo by ${photo.guestName}`}
-          className="w-full bg-charcoal/5"
+          className="max-h-[75vh] w-auto max-w-full rounded-2xl object-contain shadow-2xl"
         />
-        <div className="flex items-center justify-between px-3 pb-4 pt-3">
-          <div className="font-mono text-[10px] uppercase tracking-widest text-charcoal-muted">
-            <div>BY {photo.guestName}</div>
-            <div className="mt-0.5">{formatTime(new Date(photo.capturedAt))}</div>
-          </div>
-        </div>
+      </div>
 
-        <div className="flex flex-col gap-2 px-3 pb-4">
-          <button
-            type="button"
-            onClick={() =>
-              savePhoto(photo.url, `wedding-camera-${photo.id}.jpg`)
-            }
-            className="w-full rounded-full bg-wine px-6 py-3 font-sans text-xs font-semibold uppercase tracking-widest text-paper transition-opacity hover:opacity-90"
-          >
-            Save Photo
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full rounded-full border border-paper-border bg-paper-card px-6 py-3 font-sans text-xs font-semibold uppercase tracking-widest text-charcoal transition-colors hover:bg-paper"
-          >
-            Back to Roll
-          </button>
-        </div>
+      {/* Bottom metadata bar */}
+      <div
+        className="mx-auto flex w-full max-w-lg flex-col items-center gap-1 pb-[max(env(safe-area-inset-bottom),12px)] text-center"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="text-sm font-semibold text-white/95">
+          {photo.guestName}
+        </p>
+        <p className="text-xs text-white/50">
+          {formatTime(new Date(photo.capturedAt))}
+        </p>
       </div>
     </div>
   );

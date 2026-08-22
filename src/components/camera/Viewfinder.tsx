@@ -1,11 +1,11 @@
 "use client";
 
 import {
-  Camera,
   RefreshCw,
   Zap,
   ZapOff,
   AlertTriangle,
+  Images,
 } from "lucide-react";
 import type { RefObject } from "react";
 import type { FilmStyle } from "@/lib/photo/filmProcessor";
@@ -27,14 +27,7 @@ interface ViewfinderProps {
   onToggleFlash: () => void;
   onShutter: () => void;
   onFileSelected: (file: File) => void;
-}
-
-function CornerTick({ className }: { className: string }) {
-  return (
-    <span
-      className={`pointer-events-none absolute h-6 w-6 border-white/80 ${className}`}
-    />
-  );
+  onViewRoll?: () => void;
 }
 
 export default function Viewfinder({
@@ -52,22 +45,12 @@ export default function Viewfinder({
   onToggleFlash,
   onShutter,
   onFileSelected,
+  onViewRoll,
 }: ViewfinderProps) {
   return (
-    <div className="flex w-full max-w-md flex-col gap-4">
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-1">
-        <div className="leading-tight">
-          <p className="font-serif text-lg text-charcoal">{coupleName}</p>
-          <p className="date-stamp text-xs">{eventDate}</p>
-        </div>
-        <span className="rounded-full bg-wine px-3 py-1 font-mono text-xs font-semibold text-paper">
-          {shotsLeft} SHOTS LEFT
-        </span>
-      </div>
-
-      {/* Viewfinder frame */}
-      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-black shadow-lg ring-1 ring-charcoal/20">
+    <div className="flex h-dvh w-full flex-col bg-black">
+      {/* ─── Viewfinder ─── */}
+      <div className="relative flex-1 overflow-hidden">
         <video
           ref={videoRef}
           autoPlay
@@ -81,26 +64,78 @@ export default function Viewfinder({
           }}
         />
 
-        {/* Live film treatment overlays */}
+        {/* Film overlays */}
         <div className="film-grain pointer-events-none absolute inset-0" />
         <div className="film-vignette pointer-events-none absolute inset-0" />
-        <span className="date-stamp pointer-events-none absolute bottom-3 right-6 text-xs">
-          {eventDate}
-        </span>
 
+        {/* Center focus bracket */}
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div className="relative h-16 w-16">
+            {/* Top-left */}
+            <span className="absolute left-0 top-0 h-4 w-4 border-l-[1.5px] border-t-[1.5px] border-white/60" />
+            {/* Top-right */}
+            <span className="absolute right-0 top-0 h-4 w-4 border-r-[1.5px] border-t-[1.5px] border-white/60" />
+            {/* Bottom-left */}
+            <span className="absolute bottom-0 left-0 h-4 w-4 border-b-[1.5px] border-l-[1.5px] border-white/60" />
+            {/* Bottom-right */}
+            <span className="absolute bottom-0 right-0 h-4 w-4 border-b-[1.5px] border-r-[1.5px] border-white/60" />
+          </div>
+        </div>
+
+        {/* Top status bar */}
+        <div className="absolute left-0 right-0 top-0 flex items-center justify-between px-5 pt-[max(env(safe-area-inset-top),12px)]">
+          <span className="text-[11px] font-medium text-white/80">
+            {coupleName}
+          </span>
+          <span className="text-[11px] font-medium text-white/80">
+            {eventDate}
+          </span>
+        </div>
+
+        {/* Mid-level controls: flash + focal length (decorative) + flip */}
+        <div className="absolute bottom-4 left-0 right-0 flex items-center justify-center gap-6">
+          <button
+            type="button"
+            onClick={onToggleFlash}
+            aria-label="Toggle flash"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm"
+          >
+            {flashMode === "auto" ? (
+              <Zap className="h-3.5 w-3.5 text-accent" />
+            ) : (
+              <ZapOff className="h-3.5 w-3.5 text-white/70" />
+            )}
+          </button>
+
+          <span className="rounded-full bg-black/40 px-3 py-1 text-[11px] font-medium text-white/80 backdrop-blur-sm">
+            {filmStyle === "mono" ? "B&W" : "Color"}
+          </span>
+
+          <button
+            type="button"
+            onClick={onFlip}
+            aria-label="Flip camera"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm"
+          >
+            <RefreshCw className="h-3.5 w-3.5 text-white/70" />
+          </button>
+        </div>
+
+        {/* Camera loading state */}
         {!streaming && !cameraError && (
-          <div className="absolute inset-0 flex items-center justify-center bg-charcoal/80">
-            <span className="font-mono text-xs text-paper/80">Starting camera…</span>
+          <div className="absolute inset-0 flex items-center justify-center bg-black">
+            <span className="text-sm text-white/50">Starting camera…</span>
           </div>
         )}
 
+        {/* Camera error / fallback */}
         {cameraError && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-charcoal/85 p-6 text-center">
-            <AlertTriangle className="h-7 w-7 text-stamp-yellow" />
-            <p className="font-sans text-sm text-paper">
-              Camera unavailable. Choose a photo instead.
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black p-6 text-center">
+            <AlertTriangle className="h-8 w-8 text-accent" />
+            <p className="text-sm text-white/80">
+              Camera unavailable
             </p>
-            <label className="cursor-pointer rounded-full bg-wine px-5 py-2 font-sans text-xs font-semibold uppercase tracking-widest text-paper">
+            <label className="cursor-pointer rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-black">
               Choose Photo
               <input
                 type="file"
@@ -116,77 +151,60 @@ export default function Viewfinder({
           </div>
         )}
 
-        {/* Corner ticks */}
-        <CornerTick className="left-3 top-3 border-l-2 border-t-2" />
-        <CornerTick className="right-3 top-3 border-r-2 border-t-2" />
-        <CornerTick className="bottom-3 left-3 border-b-2 border-l-2" />
-        <CornerTick className="bottom-3 right-3 border-b-2 border-r-2" />
-
-        {/* Center focus circle */}
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="relative h-20 w-20 rounded-full border border-white/50">
-            <span className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/70" />
-          </div>
-        </div>
-
-        {/* Film labels */}
-        <span className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 font-mono text-[10px] tracking-widest text-white/80">
-          ISO 400 FILM
-        </span>
-        <span className="pointer-events-none absolute right-3 top-10 font-mono text-[10px] tracking-widest text-white/80">
-          EXP. 07/25
-        </span>
-
         {/* Flash overlay */}
         <div
-          className={`pointer-events-none absolute inset-0 bg-white transition-opacity duration-200 ${
+          className={`pointer-events-none absolute inset-0 bg-white transition-opacity duration-150 ${
             flashActive ? "opacity-90" : "opacity-0"
           }`}
         />
       </div>
 
-      {/* Controls */}
-      <div className="flex items-center justify-between px-2">
-        <button
-          type="button"
-          onClick={onFlip}
-          aria-label="Flip camera"
-          className="flex h-12 w-12 items-center justify-center rounded-full border border-paper-border bg-paper-card text-charcoal shadow-sm"
-        >
-          <RefreshCw className="h-5 w-5" />
-        </button>
-
-        <button
-          type="button"
-          onClick={onShutter}
-          disabled={shotsLeft <= 0}
-          aria-label="Take photo"
-          className="relative flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-b from-zinc-200 to-zinc-400 p-1 shadow-lg disabled:opacity-40"
-        >
-          <span className="flex h-full w-full items-center justify-center rounded-full bg-gradient-to-b from-zinc-100 to-zinc-300">
-            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-wine shadow-inner">
-              <Camera className="h-6 w-6 text-paper" />
-            </span>
+      {/* ─── Bottom controls bar ─── */}
+      <div className="bg-black px-6 pb-[max(env(safe-area-inset-bottom),20px)] pt-5">
+        {/* Shots counter */}
+        <div className="mb-4 flex items-center justify-center">
+          <span className="text-[12px] font-semibold tracking-wide text-accent">
+            {shotsLeft} shots left
           </span>
-        </button>
+        </div>
 
-        <button
-          type="button"
-          onClick={onToggleFlash}
-          aria-label="Toggle flash"
-          className="flex h-12 w-12 items-center justify-center rounded-full border border-paper-border bg-paper-card text-charcoal shadow-sm"
-        >
-          {flashMode === "auto" ? (
-            <Zap className="h-5 w-5 text-wine" />
-          ) : (
-            <ZapOff className="h-5 w-5" />
-          )}
-        </button>
+        {/* Control row: gallery thumbnail – shutter – flip */}
+        <div className="flex items-center justify-between">
+          {/* Gallery thumbnail / view roll */}
+          <button
+            type="button"
+            onClick={onViewRoll}
+            aria-label="View wedding roll"
+            className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm"
+          >
+            <Images className="h-5 w-5 text-white/70" />
+          </button>
+
+          {/* Shutter button — clean circular, accent ring */}
+          <button
+            type="button"
+            onClick={onShutter}
+            disabled={shotsLeft <= 0}
+            aria-label="Take photo"
+            className="relative flex h-[72px] w-[72px] items-center justify-center rounded-full disabled:opacity-30"
+          >
+            {/* Outer ring */}
+            <span className="absolute inset-0 rounded-full border-[3px] border-white/90" />
+            {/* Inner circle */}
+            <span className="h-[58px] w-[58px] rounded-full bg-white transition-transform active:scale-90" />
+          </button>
+
+          {/* Flip camera */}
+          <button
+            type="button"
+            onClick={onFlip}
+            aria-label="Flip camera"
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 backdrop-blur-sm"
+          >
+            <RefreshCw className="h-5 w-5 text-white" />
+          </button>
+        </div>
       </div>
-
-      <p className="text-center font-sans text-[11px] uppercase tracking-widest text-charcoal-muted">
-        Flash: {flashMode}
-      </p>
     </div>
   );
 }
