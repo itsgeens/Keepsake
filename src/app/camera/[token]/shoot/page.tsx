@@ -53,6 +53,10 @@ export default function ShootPage() {
   const [streaming, setStreaming] = useState(false);
   const [cameraError, setCameraError] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [nativeZoom, setNativeZoom] = useState(false);
+  const zoomRange = useRef<{ min: number; max: number; step: number } | null>(
+    null,
+  );
 
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [processed, setProcessed] = useState<ProcessedPhoto | null>(null);
@@ -70,6 +74,35 @@ export default function ShootPage() {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
+
+        // Detect real (optical) zoom support and apply current flash/zoom.
+        const track = stream.getVideoTracks()[0];
+        const caps = track.getCapabilities?.() as any;
+        const z = caps?.zoom;
+        if (z && typeof z === "object" && "max" in z && z.max > 1) {
+          zoomRange.current = {
+            min: z.min ?? 1,
+            max: z.max,
+            step: z.step ?? 0.1,
+          };
+          setNativeZoom(true);
+        } else {
+          zoomRange.current = null;
+          setNativeZoom(false);
+        }
+        track
+          .applyConstraints({ advanced: [{ torch: flashMode === "on" }] } as any)
+          .catch(() => {});
+        if (zoomRange.current) {
+          const val = Math.min(
+            zoomRange.current.max,
+            Math.max(zoomRange.current.min, zoom),
+          );
+          track
+            .applyConstraints({ advanced: [{ zoom: val }] } as any)
+            .catch(() => {});
+        }
+
         setCameraError(false);
         setStreaming(true);
       } catch {
@@ -102,6 +135,24 @@ export default function ShootPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
+  // Keep the real LED (torch) and optical zoom in sync with the chosen mode.
+  useEffect(() => {
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!track) return;
+    track
+      .applyConstraints({ advanced: [{ torch: flashMode === "on" }] } as any)
+      .catch(() => {});
+    if (nativeZoom && zoomRange.current) {
+      const val = Math.min(
+        zoomRange.current.max,
+        Math.max(zoomRange.current.min, zoom),
+      );
+      track
+        .applyConstraints({ advanced: [{ zoom: val }] } as any)
+        .catch(() => {});
+    }
+  }, [flashMode, zoom, nativeZoom]);
+
   function triggerFlash() {
     if (flashMode === "off") return;
     setFlashActive(true);
@@ -115,7 +166,7 @@ export default function ShootPage() {
 
   const frame =
     videoRef.current && !cameraError
-      ? captureFrame(videoRef.current, zoom)
+      ? captureFrame(videoRef.current, nativeZoom ? 1 : zoom)
       : null;
     if (!frame) return;
 
@@ -216,6 +267,7 @@ export default function ShootPage() {
           setFilmStyle(session.filmStyle === "mono" ? "fuji" : "mono")
         }
         zoom={zoom}
+        nativeZoom={nativeZoom}
         onZoomIn={() => setZoom((z) => Math.min(3, Math.round((z + 0.5) * 10) / 10))}
         onZoomOut={() => setZoom((z) => Math.max(1, Math.round((z - 0.5) * 10) / 10))}
         onShutter={handleShutter}

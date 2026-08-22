@@ -24,6 +24,7 @@ interface ViewfinderProps {
   eventDate: string;
   filmStyle: FilmStyle;
   zoom: number;
+  nativeZoom: boolean;
   onFlip: () => void;
   onToggleFlash: () => void;
   onToggleFilmStyle: () => void;
@@ -46,6 +47,7 @@ export default function Viewfinder({
   eventDate,
   filmStyle,
   zoom,
+  nativeZoom,
   onFlip,
   onToggleFlash,
   onToggleFilmStyle,
@@ -68,7 +70,7 @@ export default function Viewfinder({
             filmStyle === "fuji" ? "film-filter-fuji" : "film-filter"
           }`}
           style={{
-            transform: `scale(${zoom})${
+            transform: `scale(${nativeZoom ? 1 : zoom})${
               facingMode === "user" ? " scaleX(-1)" : ""
             }`,
           }}
