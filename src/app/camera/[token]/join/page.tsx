@@ -3,7 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { fetchEventByToken } from "@/lib/supabase/events";
-import { useGuestSession } from "@/hooks/useGuestSession";
+import { useGuestSession, getStoredSession } from "@/hooks/useGuestSession";
 import { createClient } from "@/lib/supabase/client";
 import type { EventRow } from "@/types/database";
 import type { FilmStyle } from "@/lib/photo/filmProcessor";
@@ -21,8 +21,12 @@ export default function JoinPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (getStoredSession(token)) {
+      router.replace(`/camera/${token}/shoot`);
+      return;
+    }
     fetchEventByToken(token).then(setEvent);
-  }, [token]);
+  }, [token, router]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

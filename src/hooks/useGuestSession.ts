@@ -15,19 +15,36 @@ function storageKey(token: string) {
   return `wedding_guest_session_${token}`;
 }
 
+function setSessionCookie(token: string, value: string) {
+  if (typeof document === "undefined") return;
+  document.cookie = `${storageKey(token)}=${encodeURIComponent(
+    value,
+  )}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
+}
+
+function getSessionCookie(token: string): string | null {
+  if (typeof document === "undefined") return null;
+  const prefix = `${storageKey(token)}=`;
+  for (const part of document.cookie.split(";")) {
+    const trimmed = part.trim();
+    if (trimmed.startsWith(prefix)) {
+      return decodeURIComponent(trimmed.slice(prefix.length));
+    }
+  }
+  return null;
+}
+
+function clearSessionCookie(token: string) {
+  if (typeof document === "undefined") return;
+  document.cookie = `${storageKey(token)}=; path=/; max-age=0`;
+}
+
 export function useGuestSession(token: string, photoLimit = 25) {
   const [session, setSession] = useState<GuestSession | null>(null);
 
   useEffect(() => {
-    const raw = localStorage.getItem(storageKey(token));
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw) as GuestSession;
-        setSession({ ...parsed, filmStyle: parsed.filmStyle ?? "mono" });
-      } catch {
-        localStorage.removeItem(storageKey(token));
-      }
-    }
+    const parsed = getStoredSession(token);
+    if (parsed) setSession(parsed);
   }, [token]);
 
   function saveSession(
@@ -47,6 +64,7 @@ export function useGuestSession(token: string, photoLimit = 25) {
       filmStyle,
     };
     localStorage.setItem(storageKey(token), JSON.stringify(next));
+    setSessionCookie(token, JSON.stringify(next));
     setSession(next);
     return next;
   }
@@ -80,6 +98,7 @@ export function useGuestSession(token: string, photoLimit = 25) {
 
   function clearSession() {
     localStorage.removeItem(storageKey(token));
+    clearSessionCookie(token);
     setSession(null);
   }
 
@@ -94,12 +113,27 @@ export function useGuestSession(token: string, photoLimit = 25) {
 }
 
 export function getStoredSession(token: string): GuestSession | null {
-  const raw = localStorage.getItem(storageKey(token));
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as GuestSession;
-    return { ...parsed, filmStyle: parsed.filmStyle ?? "mono" };
-  } catch {
-    return null;
+  const read = (raw: string | null): GuestSession | null => {
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw) as GuestSession;
+      return { ...parsed, filmStyle: parsed.filmStyle ?? "mono" };
+    } catch {
+      return null;
+    }
+  };
+  const fromStorage = read(
+    typeof localStorage !== "undefined"
+      ? localStorage.getItem(storageKey(token))
+      : null,
+  );
+  if (fromStorage) return fromStorage;
+  const fromCookie = read(getSessionCookie(token));
+  if (fromCookie) {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(storageKey(token), JSON.stringify(fromCookie));
+    }
+    return fromCookie;
   }
+  return null;
 }
