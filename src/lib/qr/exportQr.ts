@@ -35,12 +35,31 @@ function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   });
 }
 
-async function svgToImage(svg: SVGSVGElement): Promise<HTMLImageElement> {
-  // React renders SVG without an xmlns, but a standalone SVG needs it to load
-  // as a raster image. Clone + inject the namespace before serializing.
+async function svgToImage(
+  svg: SVGSVGElement,
+  fgColor?: string,
+): Promise<HTMLImageElement> {
   const clone = svg.cloneNode(true) as SVGSVGElement;
   clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
   clone.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
+
+  // Remove any white background rect so the QR SVG has a 100% transparent background
+  const rects = clone.querySelectorAll("rect");
+  rects.forEach((rect) => {
+    const fill = rect.getAttribute("fill")?.toLowerCase();
+    if (fill === "#ffffff" || fill === "#fff" || fill === "white" || !fill) {
+      rect.remove();
+    }
+  });
+
+  // Tint QR foreground paths if specified
+  if (fgColor) {
+    const paths = clone.querySelectorAll("path");
+    paths.forEach((path) => {
+      path.setAttribute("fill", fgColor);
+    });
+  }
+
   const xml = new XMLSerializer().serializeToString(clone);
   const url =
     "data:image/svg+xml;charset=utf-8," + encodeURIComponent(xml);
@@ -71,12 +90,12 @@ export async function exportPlainQr(
   triggerDownload(await canvasToBlob(canvas), filename);
 }
 
-const FILM = "#131210";
-const FILM_REBATE = "#080706";
+const FILM = "#110f14";
+const FILM_REBATE = "#070509";
 const STAMP_AMBER = "#f59e0b";
 const STAMP_GREEN = "#a3e635";
 const STAMP_MUTED = "#b45309";
-const SPROCKET = "#050404";
+const SPROCKET = "#050406";
 const MONO = 'ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, monospace';
 const OUTER = 22;
 
@@ -120,15 +139,16 @@ function drawDxBarcode(
   ctx.globalAlpha = 1;
 }
 
-// QR composed onto an authentic 35mm analog film negative slide with DX barcodes,
-// edge rebate codes, continuous sprockets, and a backlit slide aperture.
+// QR composed onto an authentic 35mm analog film negative slide with translucent purple emulsion,
+// DX barcodes, edge rebate codes, continuous sprockets, and perfect centering.
 export async function exportFilmQr(
   svg: SVGSVGElement,
   filename: string,
   coupleName: string,
   eventDate: string,
 ) {
-  const img = await svgToImage(svg);
+  // Render QR with pure white/platinum foreground and 100% transparent background
+  const img = await svgToImage(svg, "#ffffff");
 
   // 35mm Film Slide Frame Proportions
   const filmW = 560;
@@ -183,7 +203,7 @@ export async function exportFilmQr(
   ctx.font = `bold 9px ${MONO}`;
   ctx.fillText("DX-400", filmW - 16, 33);
 
-  // Center 35mm Film Aperture Window (where the QR lives as an exposed slide)
+  // Center 35mm Film Aperture Window (Translucent Purple Negative Emulsion)
   const fw = 340;
   const fh = 340;
   const fx = (filmW - fw) / 2;
@@ -191,36 +211,36 @@ export async function exportFilmQr(
 
   // Film aperture rebate / dark mask bezel
   ctx.fillStyle = FILM_REBATE;
-  roundRect(ctx, fx - 5, fy - 5, fw + 10, fh + 10, 4);
+  roundRect(ctx, fx - 5, fy - 5, fw + 10, fh + 10, 5);
   ctx.fill();
   ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
   ctx.lineWidth = 1;
   ctx.stroke();
 
-  // Backlit Film Slide Transparency (warm emulsion tone with soft vignette)
+  // Translucent Purple / Violet-Magenta Film Negative Emulsion Window
   const grad = ctx.createRadialGradient(
     fx + fw / 2,
     fy + fh / 2,
-    fw * 0.2,
+    fw * 0.15,
     fx + fw / 2,
     fy + fh / 2,
-    fw * 0.7,
+    fw * 0.72,
   );
-  grad.addColorStop(0, "#faf7f0");
-  grad.addColorStop(0.85, "#f4eee0");
-  grad.addColorStop(1, "#eae1cf");
+  grad.addColorStop(0, "#5b2182"); // Luminous translucent purple center
+  grad.addColorStop(0.55, "#421663"); // Rich violet emulsion body
+  grad.addColorStop(1, "#2b0d42"); // Deep negative edge vignette
 
   ctx.fillStyle = grad;
   roundRect(ctx, fx, fy, fw, fh, 3);
   ctx.fill();
 
-  // Subtle film aperture inner border
-  ctx.strokeStyle = "rgba(0, 0, 0, 0.18)";
+  // Subtle translucent film rebate inner stroke
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
   ctx.lineWidth = 1;
   ctx.strokeRect(fx, fy, fw, fh);
 
-  // Authentic corner registration tick marks
-  ctx.strokeStyle = "rgba(0, 0, 0, 0.22)";
+  // Authentic corner registration tick marks in amber
+  ctx.strokeStyle = "rgba(245, 158, 11, 0.55)";
   ctx.lineWidth = 1.5;
   const cl = 10;
   // Top-left
@@ -249,19 +269,19 @@ export async function exportFilmQr(
   ctx.stroke();
 
   // Slide top & bottom micro labels inside the film window
-  ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+  ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
   ctx.font = `bold 8px ${MONO}`;
   ctx.textAlign = "center";
-  ctx.fillText("35MM SLIDE TRANSPARENCY  •  SAFETY FILM", fx + fw / 2, fy + 14);
+  ctx.fillText("35MM COLOR NEGATIVE  •  SAFETY FILM", fx + fw / 2, fy + 14);
 
-  // Draw high-res QR code centered with clear quiet zone
+  // Draw high-res QR code centered with exact equal padding
   const qSize = 270;
   const qx = fx + (fw - qSize) / 2;
-  const qy = fy + (fh - qSize) / 2 + 2;
+  const qy = fy + (fh - qSize) / 2 + 3;
   ctx.drawImage(img, qx, qy, qSize, qSize);
 
   // Frame stamp index inside aperture
-  ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+  ctx.fillStyle = STAMP_AMBER;
   ctx.font = `bold 9px ${MONO}`;
   ctx.textAlign = "right";
   ctx.fillText("#19A", fx + fw - 10, fy + fh - 8);

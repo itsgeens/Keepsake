@@ -200,7 +200,7 @@ export default function ManageEventPage() {
             aria-hidden
           >
             {joinUrl && (
-              <QRCodeSVG value={joinUrl} size={600} level="M" marginSize={2} />
+              <QRCodeSVG value={joinUrl} size={600} level="M" marginSize={0} />
             )}
           </div>
           <div className="w-full flex-1 space-y-2">
