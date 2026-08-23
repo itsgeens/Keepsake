@@ -71,23 +71,33 @@ export async function exportPlainQr(
   triggerDownload(await canvasToBlob(canvas), filename);
 }
 
+const FILM = "#141311";
+const STAMP = "#ff9f0a";
+const STAMP_MUTED = "#cf8513";
+const SPROCKET = "#080706";
+const MONO = 'ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, monospace';
+const OUTER = 20;
+
 function drawSprocketRow(
   ctx: CanvasRenderingContext2D,
   width: number,
   y: number,
 ) {
-  const holeW = 16;
-  const holeH = 22;
-  const step = 30;
-  ctx.fillStyle = "#050505";
-  for (let x = 24; x < width - holeW; x += step) {
-    roundRect(ctx, x, y, holeW, holeH, 4);
+  const holeW = 13;
+  const holeH = 17;
+  const step = 23;
+  ctx.fillStyle = SPROCKET;
+  for (let x = 14; x < width - holeW; x += step) {
+    roundRect(ctx, x, y, holeW, holeH, 3.5);
     ctx.fill();
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
   }
 }
 
-// QR composed onto a dark "film negative" card with the couple name, date,
-// and a scannable white-backed QR in the center.
+// QR composed onto an authentic 35mm film negative frame with top & bottom
+// sprockets, edge stamps, photo rebate aperture, and scannable QR.
 export async function exportFilmQr(
   svg: SVGSVGElement,
   filename: string,
@@ -95,43 +105,128 @@ export async function exportFilmQr(
   eventDate: string,
 ) {
   const img = await svgToImage(svg);
-  const W = 600;
-  const H = 820;
+
+  // 35mm Film Frame Proportions
+  const filmW = 540;
+  const filmH = 460;
+  const totalW = filmW + OUTER * 2;
+  const totalH = filmH + OUTER * 2;
+
+  // High-res retina canvas (2x)
+  const DPR = 2;
   const canvas = document.createElement("canvas");
-  canvas.width = W;
-  canvas.height = H;
+  canvas.width = totalW * DPR;
+  canvas.height = totalH * DPR;
+
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("2D context unavailable");
 
-  // Film base
-  ctx.fillStyle = "#121110";
-  ctx.fillRect(0, 0, W, H);
+  ctx.scale(DPR, DPR);
 
-  // Sprocket rows
-  drawSprocketRow(ctx, W, 22);
-  drawSprocketRow(ctx, W, H - 44);
-
-  // Header
-  ctx.textAlign = "center";
-  ctx.fillStyle = "#ff9f0a";
-  ctx.font = "700 34px Inter, system-ui, sans-serif";
-  ctx.fillText(coupleName.toUpperCase(), W / 2, 120);
-  ctx.fillStyle = "#cfcfcf";
-  ctx.font = "20px Inter, system-ui, sans-serif";
-  ctx.fillText(eventDate, W / 2, 152);
-
-  // QR on a white backing (quiet zone) so it stays scannable
-  const qSize = 300;
-  const qx = (W - qSize) / 2;
-  const qy = 210;
+  // Outer white margin for crisp contrast against any surface or print
   ctx.fillStyle = "#ffffff";
-  ctx.fillRect(qx - 18, qy - 18, qSize + 36, qSize + 36);
+  ctx.fillRect(0, 0, totalW, totalH);
+
+  // Dark acetate film body
+  ctx.fillStyle = FILM;
+  roundRect(ctx, OUTER, OUTER, filmW, filmH, 4);
+  ctx.fill();
+
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  ctx.save();
+  ctx.translate(OUTER, OUTER);
+
+  // Top & bottom continuous 35mm sprocket rows
+  drawSprocketRow(ctx, filmW, 8);
+  drawSprocketRow(ctx, filmW, filmH - 25);
+
+  // Top film stock & event stamp
+  const stampTitle = (coupleName || "KEEPSAKE").toUpperCase();
+  ctx.font = `bold 11px ${MONO}`;
+  ctx.fillStyle = STAMP;
+  ctx.textAlign = "left";
+  ctx.fillText(`KODAK SAFETY FILM 400  •  ${stampTitle}`, 16, 33);
+
+  ctx.textAlign = "right";
+  ctx.fillStyle = STAMP_MUTED;
+  ctx.font = `9px ${MONO}`;
+  ctx.fillText("ISO 400", filmW - 16, 33);
+
+  // Center Photo Frame Aperture for QR
+  const fw = 340;
+  const fh = 340;
+  const fx = (filmW - fw) / 2;
+  const fy = 46;
+
+  // Film aperture rebate / bevel
+  ctx.fillStyle = "#000000";
+  ctx.fillRect(fx - 4, fy - 4, fw + 8, fh + 8);
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+  ctx.strokeRect(fx - 4, fy - 4, fw + 8, fh + 8);
+
+  // Archival photographic paper backing (warm off-white quiet zone)
+  ctx.fillStyle = "#faf9f6";
+  roundRect(ctx, fx, fy, fw, fh, 2);
+  ctx.fill();
+
+  // Subtle corner registration marks on frame
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.15)";
+  ctx.lineWidth = 1.5;
+  const cl = 12;
+  // Top-left
+  ctx.beginPath();
+  ctx.moveTo(fx + 10, fy + 10 + cl);
+  ctx.lineTo(fx + 10, fy + 10);
+  ctx.lineTo(fx + 10 + cl, fy + 10);
+  ctx.stroke();
+  // Top-right
+  ctx.beginPath();
+  ctx.moveTo(fx + fw - 10 - cl, fy + 10);
+  ctx.lineTo(fx + fw - 10, fy + 10);
+  ctx.lineTo(fx + fw - 10, fy + 10 + cl);
+  ctx.stroke();
+  // Bottom-left
+  ctx.beginPath();
+  ctx.moveTo(fx + 10, fy + fh - 10 - cl);
+  ctx.lineTo(fx + 10, fy + fh - 10);
+  ctx.lineTo(fx + 10 + cl, fy + fh - 10);
+  ctx.stroke();
+  // Bottom-right
+  ctx.beginPath();
+  ctx.moveTo(fx + fw - 10 - cl, fy + fh - 10);
+  ctx.lineTo(fx + fw - 10, fy + fh - 10);
+  ctx.lineTo(fx + fw - 10, fy + fh - 10 - cl);
+  ctx.stroke();
+
+  // Draw high-res QR code centered with generous quiet zone
+  const qSize = 280;
+  const qx = fx + (fw - qSize) / 2;
+  const qy = fy + (fh - qSize) / 2;
   ctx.drawImage(img, qx, qy, qSize, qSize);
 
-  // Footer
-  ctx.fillStyle = "#ff9f0a";
-  ctx.font = "600 18px Inter, system-ui, sans-serif";
-  ctx.fillText("SCAN TO JOIN THE ALBUM", W / 2, qy + qSize + 52);
+  // Frame corner stamp index inside photo aperture
+  ctx.fillStyle = "#000000";
+  ctx.font = `bold 10px ${MONO}`;
+  ctx.textAlign = "right";
+  ctx.fillText("01A", fx + fw - 12, fy + fh - 10);
+
+  // Bottom film edge markings
+  ctx.textAlign = "left";
+  ctx.fillStyle = STAMP;
+  ctx.font = `bold 11px ${MONO}`;
+  ctx.fillText("► 01A  •  SCAN TO JOIN ALBUM", 16, filmH - 10);
+
+  if (eventDate) {
+    ctx.textAlign = "right";
+    ctx.fillStyle = STAMP_MUTED;
+    ctx.font = `10px ${MONO}`;
+    ctx.fillText(eventDate, filmW - 16, filmH - 10);
+  }
+
+  ctx.restore();
 
   triggerDownload(await canvasToBlob(canvas), filename);
 }

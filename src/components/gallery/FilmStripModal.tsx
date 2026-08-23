@@ -44,8 +44,10 @@ export default function FilmStripModal({
   eventDate,
   onToast,
 }: FilmStripModalProps) {
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [mode, setMode] = useState<StripMode>("vertical");
+  const [selectedIds, setSelectedIds] = useState<string[]>(() =>
+    photos.slice(0, MAX_FRAMES).map((p) => p.id),
+  );
+  const [mode, setMode] = useState<StripMode>("horizontal");
   const [busy, setBusy] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -61,16 +63,16 @@ export default function FilmStripModal({
 
   function makePlaceholder(): HTMLCanvasElement {
     const c = document.createElement("canvas");
-    c.width = 280;
-    c.height = 200;
+    c.width = 340;
+    c.height = 230;
     const cx = c.getContext("2d");
     if (cx) {
-      cx.fillStyle = "#2a2825";
-      cx.fillRect(0, 0, 280, 200);
-      cx.fillStyle = "#6e6e73";
-      cx.font = "16px sans-serif";
+      cx.fillStyle = "#1e1d1b";
+      cx.fillRect(0, 0, 340, 230);
+      cx.fillStyle = "#8e8e93";
+      cx.font = "14px sans-serif";
       cx.textAlign = "center";
-      cx.fillText("Unavailable", 140, 105);
+      cx.fillText("Unavailable", 170, 115);
     }
     return c;
   }
@@ -87,6 +89,8 @@ export default function FilmStripModal({
 
     (async () => {
       try {
+        if (selectedPhotos.length === 0) return;
+
         const images = await Promise.all(
           selectedPhotos.map(async (p) => {
             const cached = imgCache.current.get(p.url);
@@ -154,8 +158,12 @@ export default function FilmStripModal({
     setSelectedIds((prev) => [...prev, id]);
   }
 
-  function selectFirstFive() {
-    setSelectedIds(photos.slice(0, MAX_FRAMES).map((p) => p.id));
+  function handleResetOrSelectAll() {
+    if (selectedIds.length > 0) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(photos.slice(0, MAX_FRAMES).map((p) => p.id));
+    }
   }
 
   function collectCanvases(): HTMLCanvasElement[] {
@@ -217,7 +225,7 @@ export default function FilmStripModal({
             Your Film Strip
           </h2>
           <p className="text-[11px] text-text-tertiary">
-            {selectedPhotos.length} / {MAX_FRAMES} frames
+            {selectedPhotos.length} / {MAX_FRAMES} frames selected
           </p>
         </div>
         <div className="w-9" />
@@ -225,69 +233,126 @@ export default function FilmStripModal({
 
       {/* Body */}
       <div
-        className="flex-1 overflow-y-auto px-4 pb-28 pt-4"
+        className="flex-1 overflow-y-auto px-4 pb-28 pt-3"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Info banner */}
-        <div className="mb-4 flex items-center gap-2.5 rounded-2xl border border-accent/30 bg-accent-soft p-3.5">
+        <div className="mb-3.5 flex items-center gap-2.5 rounded-2xl border border-accent/30 bg-accent-soft p-3">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/20 text-accent">
             <Film className="h-4 w-4" />
           </div>
           <div>
-            <p className="text-sm font-bold text-text-primary">
-              Build your 35mm roll
+            <p className="text-xs font-bold text-text-primary">
+              Build your 35mm film roll
             </p>
             <p className="text-[11px] text-text-secondary">
-              Pick up to {MAX_FRAMES} of your photos to render a film strip.
+              Pick up to {MAX_FRAMES} photos to render your authentic negative strip.
             </p>
           </div>
         </div>
 
-        {/* Preview */}
-        <div className="mb-4 overflow-hidden rounded-2xl border border-separator bg-surface p-3 shadow-sm">
-          <div className="mb-2 flex items-center justify-between border-b border-zinc-800 pb-2">
-            <span className="font-mono text-[10px] uppercase tracking-wider text-accent">
-              Film Strip Preview
+        {/* Lightbox Preview Card */}
+        <div className="mb-4 overflow-hidden rounded-2xl border border-separator/80 bg-surface shadow-sm">
+          {/* Lightbox header bar */}
+          <div className="flex items-center justify-between border-b border-separator/60 px-3.5 py-2 bg-surface-secondary/50">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75"></span>
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-accent"></span>
+              </span>
+              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-text-primary">
+                35mm Lightbox Preview
+              </span>
+            </div>
+            <span className="font-mono text-[10px] font-medium text-text-tertiary">
+              {selectedPhotos.length} {selectedPhotos.length === 1 ? "frame" : "frames"} •{" "}
+              {mode === "horizontal"
+                ? "Horizontal"
+                : mode === "vertical"
+                  ? "Vertical"
+                  : "Individual"}
             </span>
           </div>
-          <div className="max-h-[60vh] overflow-auto">
+
+          {/* Light table preview canvas area */}
+          <div className="relative min-h-[190px] bg-[#ece8df] border-b border-[#ded7ca]/60 flex items-center justify-center">
             {selectedPhotos.length === 0 ? (
-              <p className="py-10 text-center text-xs text-zinc-500">
-                Tap photos below to build your strip
-              </p>
-            ) : mode === "frames" ? (
-              <div className="flex flex-col gap-3">
-                {selectedPhotos.map((photo, i) => (
-                  <canvas
-                    key={photo.id}
-                    ref={(el) => {
-                      frameRefs.current[i] = el;
-                    }}
-                    className="w-full rounded shadow-2xl"
-                  />
-                ))}
+              <div className="py-12 px-4 text-center">
+                <Film className="mx-auto h-7 w-7 text-text-tertiary/40 mb-1.5" />
+                <p className="text-xs font-semibold text-text-secondary">
+                  No photos selected
+                </p>
+                <p className="text-[11px] text-text-tertiary mt-0.5">
+                  Tap photos below to build your 35mm film strip
+                </p>
+              </div>
+            ) : mode === "horizontal" ? (
+              <div className="w-full overflow-x-auto overflow-y-hidden py-4 px-4 flex items-center justify-start">
+                <canvas
+                  ref={canvasRef}
+                  className="h-44 sm:h-52 w-auto max-w-none block my-auto rounded shadow-2xl transition-all shrink-0"
+                />
+              </div>
+            ) : mode === "vertical" ? (
+              <div className="w-full max-h-[360px] sm:max-h-[400px] overflow-y-auto overflow-x-hidden py-4 px-3 flex justify-center">
+                <canvas
+                  ref={canvasRef}
+                  className="w-full max-w-[240px] sm:max-w-[270px] h-auto block my-auto rounded shadow-2xl transition-all"
+                />
               </div>
             ) : (
-              <canvas ref={canvasRef} className="block max-w-none rounded shadow-2xl" />
+              <div className="w-full overflow-x-auto overflow-y-hidden py-4 px-4 flex gap-3.5 snap-x snap-mandatory justify-start">
+                {selectedPhotos.map((photo, i) => (
+                  <div
+                    key={photo.id}
+                    className="relative shrink-0 snap-center flex flex-col items-center"
+                  >
+                    <canvas
+                      ref={(el) => {
+                        frameRefs.current[i] = el;
+                      }}
+                      className="w-[230px] sm:w-[260px] h-auto rounded shadow-2xl block"
+                    />
+                    <span className="mt-2 inline-block rounded-full bg-black/60 px-2.5 py-0.5 text-[9px] font-mono font-medium text-white/90">
+                      Frame {i + 1} of {selectedPhotos.length}
+                    </span>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
+
+          {/* Scroll hint bar */}
+          {selectedPhotos.length > 0 && (
+            <div className="px-3.5 py-1.5 bg-surface text-center">
+              <p className="text-[10px] font-medium text-text-tertiary">
+                {mode === "horizontal" && selectedPhotos.length > 1
+                  ? "↔ Scroll sideways to preview full roll"
+                  : mode === "vertical" && selectedPhotos.length > 1
+                    ? "↕ Scroll down to preview full strip"
+                    : mode === "frames" && selectedPhotos.length > 1
+                      ? "↔ Swipe across to preview each frame"
+                      : "Ready to export & share"}
+              </p>
+            </div>
+          )}
         </div>
 
-        {/* Layout mode */}
+        {/* Layout mode switcher */}
         <div className="mb-4">
-          <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-text-tertiary">
-            Layout
+          <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
+            Layout Format
           </label>
-          <div className="flex gap-1 rounded-lg bg-surface-secondary p-0.5">
+          <div className="flex gap-1 rounded-xl bg-surface-secondary p-1">
             {MODES.map((m) => (
               <button
                 key={m.value}
                 type="button"
                 onClick={() => setMode(m.value)}
-                className={`flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition-all ${
+                className={`flex-1 rounded-lg px-2.5 py-2 text-xs font-semibold transition-all ${
                   mode === m.value
                     ? "bg-white text-text-primary shadow-sm"
-                    : "text-text-secondary"
+                    : "text-text-secondary hover:text-text-primary"
                 }`}
               >
                 {m.label}
@@ -295,24 +360,28 @@ export default function FilmStripModal({
             ))}
           </div>
           <p className="mt-1.5 text-[11px] text-text-tertiary">
-            {mode === "frames"
-              ? "Each photo becomes its own frame — download or share them all at once."
-              : "Best for posting as a single Story or feed image."}
+            {mode === "horizontal"
+              ? "Continuous panoramic film roll — great for wide story banners."
+              : mode === "vertical"
+                ? "Classic photobooth vertical strip — best for single phone screens."
+                : "Each photo exported as its own standalone 35mm slide frame."}
           </p>
         </div>
 
-        {/* Selection grid */}
-        <div className="mb-2 flex items-center justify-between">
+        {/* Photo Selection Grid */}
+        <div className="mb-2.5 flex items-center justify-between">
           <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
-            Tap photos to include
+            Tap photos to include ({selectedPhotos.length}/{MAX_FRAMES})
           </span>
           {photos.length > 0 && (
             <button
               type="button"
-              onClick={selectFirstFive}
-              className="text-xs font-semibold text-accent hover:text-accent/80"
+              onClick={handleResetOrSelectAll}
+              className="text-xs font-semibold text-accent hover:text-accent/80 transition"
             >
-              {selectedIds.length > 0 ? "Reset" : `Select 5`}
+              {selectedIds.length > 0
+                ? "Deselect All"
+                : `Select All (${Math.min(photos.length, MAX_FRAMES)})`}
             </button>
           )}
         </div>
@@ -324,7 +393,8 @@ export default function FilmStripModal({
         ) : (
           <div className="grid grid-cols-3 gap-1.5">
             {photos.map((photo) => {
-              const isSelected = selectedIds.includes(photo.id);
+              const selectedIndex = selectedIds.indexOf(photo.id);
+              const isSelected = selectedIndex !== -1;
               const atCap = selectedIds.length >= MAX_FRAMES && !isSelected;
               return (
                 <button
@@ -332,27 +402,27 @@ export default function FilmStripModal({
                   type="button"
                   onClick={() => toggle(photo.id)}
                   disabled={atCap}
-                  className={`relative aspect-square overflow-hidden rounded-lg border-2 transition ${
+                  className={`group relative aspect-square overflow-hidden rounded-xl border-2 transition ${
                     isSelected
-                      ? "border-accent ring-2 ring-accent/30"
+                      ? "border-accent ring-2 ring-accent/30 shadow-md"
                       : "border-transparent"
-                  } ${atCap ? "opacity-40" : "opacity-100"}`}
+                  } ${atCap ? "opacity-35 cursor-not-allowed" : "opacity-100 active:scale-95"}`}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={photo.url}
                     alt={`Photo by ${photo.guestName}`}
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-cover transition duration-200 group-hover:scale-105"
                     loading="lazy"
                   />
                   <div
                     className={`absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold shadow ${
                       isSelected
                         ? "bg-accent text-white"
-                        : "bg-black/40 text-white/90"
+                        : "bg-black/40 text-white/90 backdrop-blur-sm"
                     }`}
                   >
-                    {isSelected && <span>✓</span>}
+                    {isSelected ? <span>{selectedIndex + 1}</span> : null}
                   </div>
                 </button>
               );
