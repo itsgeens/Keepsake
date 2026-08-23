@@ -1,31 +1,47 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { fetchEventByToken } from "@/lib/supabase/events";
 import { useGuestSession, getStoredSession } from "@/hooks/useGuestSession";
 import { useUploadSync } from "@/hooks/useUploadSync";
-import { formatEventDate, formatTime } from "@/lib/format";
-import { Camera, ArrowLeft } from "lucide-react";
+import { enqueuePhoto } from "@/lib/storage/uploadQueue";
+import { formatEventDate } from "@/lib/format";
+import { Camera, ArrowLeft, Images, Film } from "lucide-react";
 import type { EventRow, PhotoRow } from "@/types/database";
 import PhotoDetailModal, { type RollPhoto } from "@/components/gallery/PhotoDetailModal";
+import FilmStripModal from "@/components/gallery/FilmStripModal";
 
 export default function RollPage() {
   const params = useParams<{ token: string }>();
   const token = params.token;
   const router = useRouter();
 
-  const { session } = useGuestSession(token);
+  const { session, decrementShots } = useGuestSession(token);
   const supabase = useMemo(() => createClient(), []);
   const [event, setEvent] = useState<EventRow | null>(null);
-  const { pendingCount } = useUploadSync(event?.id, token);
+  const { pendingCount, sync } = useUploadSync(event?.id, token);
   const [coupleName, setCoupleName] = useState("GINO + GABBY");
   const [eventDate, setEventDate] = useState("10.01.26");
   const [photos, setPhotos] = useState<RollPhoto[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "mine">("all");
   const [selected, setSelected] = useState<RollPhoto | null>(null);
+  const [filmOpen, setFilmOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 2500);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  const myPhotos = useMemo(
+    () => (session ? photos.filter((p) => p.guestName === session.fullName) : []),
+    [photos, session],
+  );
 
   useEffect(() => {
     if (!getStoredSession(token)) {
@@ -69,6 +85,9 @@ export default function RollPage() {
   }, [event, supabase, buildRollPhoto]);
 
   useEffect(() => {
+    // Data-fetching effect: loadPhotos updates state asynchronously after the
+    // await, so this is not a synchronous setState.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (event) void loadPhotos();
   }, [event, loadPhotos]);
 
@@ -106,6 +125,48 @@ export default function RollPage() {
     }
     return photos;
   }, [filter, photos, session]);
+
+  function handleGalleryFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []).filter((f) =>
+      f.type.startsWith("image/"),
+    );
+    e.target.value = "";
+    if (!files.length || !event || !session) return;
+
+    const remaining = session.shotsLeft;
+    if (remaining <= 0) {
+      setToast("You've used all your shots");
+      return;
+    }
+
+    const allowed = files.slice(0, remaining);
+    allowed.forEach((file) => {
+      const id =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      void enqueuePhoto({
+        id,
+        eventId: event.id,
+        token,
+        guestId: session.guestId,
+        guestName: session.fullName,
+        processedBlob: file,
+        originalBlob: file,
+        capturedAt: new Date().toISOString(),
+        status: "pending",
+      });
+      decrementShots();
+    });
+    void sync();
+
+    const skipped = files.length - allowed.length;
+    setToast(
+      skipped > 0
+        ? `Added ${allowed.length} photo${allowed.length > 1 ? "s" : ""} — you're out of shots`
+        : `Uploading ${allowed.length} photo${allowed.length > 1 ? "s" : ""}…`,
+    );
+  }
 
   if (!session) return null;
 
@@ -162,6 +223,37 @@ export default function RollPage() {
         </div>
       </div>
 
+      {/* ─── Mine-only actions: gallery upload + film strip ─── */}
+      {filter === "mine" && (
+        <div className="mx-auto flex max-w-2xl items-center gap-2 px-4 pb-3">
+          <button
+            type="button"
+            onClick={() => galleryInputRef.current?.click()}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-separator bg-surface-secondary py-2.5 text-xs font-semibold text-text-primary transition active:scale-95"
+          >
+            <Images className="h-4 w-4" />
+            Add from gallery
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilmOpen(true)}
+            disabled={myPhotos.length === 0}
+            className="flex flex-[1.4] items-center justify-center gap-1.5 rounded-xl bg-accent py-2.5 text-xs font-semibold text-white transition active:scale-95 disabled:opacity-30"
+          >
+            <Film className="h-4 w-4" />
+            Make film strip
+          </button>
+          <input
+            ref={galleryInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={handleGalleryFiles}
+          />
+        </div>
+      )}
+
       {/* ─── Photo grid ─── */}
       <div className="mx-auto max-w-2xl px-4 pb-24">
         {loading ? (
@@ -216,6 +308,22 @@ export default function RollPage() {
       </div>
 
       <PhotoDetailModal photo={selected} onClose={() => setSelected(null)} />
+
+      <FilmStripModal
+        key={filmOpen ? "open" : "closed"}
+        open={filmOpen}
+        onClose={() => setFilmOpen(false)}
+        photos={myPhotos}
+        coupleName={coupleName}
+        eventDate={eventDate}
+        onToast={setToast}
+      />
+
+      {toast && (
+        <div className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full bg-text-primary px-4 py-2.5 text-xs font-medium text-white shadow-2xl">
+          {toast}
+        </div>
+      )}
     </main>
   );
 }
