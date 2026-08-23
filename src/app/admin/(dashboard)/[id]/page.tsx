@@ -113,7 +113,7 @@ export default function ManageEventPage() {
     setEvent((prev) => (prev ? { ...prev, access_token: data.access_token } : prev));
   }
 
-  const joinUrl = event ? `${origin}/camera/${event.access_token}/join` : "";
+  const joinUrl = event ? `${origin}/join/${event.slug}` : "";
 
   if (loading) {
     return <p className="text-sm text-text-tertiary">Loading…</p>;
