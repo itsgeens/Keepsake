@@ -71,12 +71,14 @@ export async function exportPlainQr(
   triggerDownload(await canvasToBlob(canvas), filename);
 }
 
-const FILM = "#141311";
-const STAMP = "#ff9f0a";
-const STAMP_MUTED = "#cf8513";
-const SPROCKET = "#080706";
+const FILM = "#131210";
+const FILM_REBATE = "#080706";
+const STAMP_AMBER = "#f59e0b";
+const STAMP_GREEN = "#a3e635";
+const STAMP_MUTED = "#b45309";
+const SPROCKET = "#050404";
 const MONO = 'ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, monospace';
-const OUTER = 20;
+const OUTER = 22;
 
 function drawSprocketRow(
   ctx: CanvasRenderingContext2D,
@@ -90,14 +92,36 @@ function drawSprocketRow(
   for (let x = 14; x < width - holeW; x += step) {
     roundRect(ctx, x, y, holeW, holeH, 3.5);
     ctx.fill();
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.09)";
     ctx.lineWidth = 1;
     ctx.stroke();
   }
 }
 
-// QR composed onto an authentic 35mm film negative frame with top & bottom
-// sprockets, edge stamps, photo rebate aperture, and scannable QR.
+// Draw authentic DX barcode data tracks (like on real Kodak/Fuji film edges)
+function drawDxBarcode(
+  ctx: CanvasRenderingContext2D,
+  startX: number,
+  y: number,
+  totalWidth: number,
+) {
+  const pattern = [2, 1, 3, 1, 2, 4, 1, 2, 3, 1, 4, 2, 1, 3, 1, 2];
+  let curX = startX;
+  let idx = 0;
+  while (curX < startX + totalWidth) {
+    const barW = pattern[idx % pattern.length];
+    const isGreen = idx % 5 === 0;
+    ctx.fillStyle = isGreen ? STAMP_GREEN : STAMP_AMBER;
+    ctx.globalAlpha = 0.85;
+    ctx.fillRect(curX, y, barW, 6);
+    curX += barW + 2;
+    idx++;
+  }
+  ctx.globalAlpha = 1;
+}
+
+// QR composed onto an authentic 35mm analog film negative slide with DX barcodes,
+// edge rebate codes, continuous sprockets, and a backlit slide aperture.
 export async function exportFilmQr(
   svg: SVGSVGElement,
   filename: string,
@@ -106,9 +130,9 @@ export async function exportFilmQr(
 ) {
   const img = await svgToImage(svg);
 
-  // 35mm Film Frame Proportions
-  const filmW = 540;
-  const filmH = 460;
+  // 35mm Film Slide Frame Proportions
+  const filmW = 560;
+  const filmH = 470;
   const totalW = filmW + OUTER * 2;
   const totalH = filmH + OUTER * 2;
 
@@ -123,16 +147,17 @@ export async function exportFilmQr(
 
   ctx.scale(DPR, DPR);
 
-  // Outer white margin for crisp contrast against any surface or print
+  // Outer light table / white margin for crisp contrast
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, totalW, totalH);
 
   // Dark acetate film body
   ctx.fillStyle = FILM;
-  roundRect(ctx, OUTER, OUTER, filmW, filmH, 4);
+  roundRect(ctx, OUTER, OUTER, filmW, filmH, 6);
   ctx.fill();
 
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+  // Subtle acetate bevel stroke
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.06)";
   ctx.lineWidth = 1;
   ctx.stroke();
 
@@ -143,86 +168,117 @@ export async function exportFilmQr(
   drawSprocketRow(ctx, filmW, 8);
   drawSprocketRow(ctx, filmW, filmH - 25);
 
-  // Top film stock & event stamp
+  // Top film stock markings & DX barcode
   const stampTitle = (coupleName || "KEEPSAKE").toUpperCase();
-  ctx.font = `bold 11px ${MONO}`;
-  ctx.fillStyle = STAMP;
+  ctx.font = `bold 10px ${MONO}`;
+  ctx.fillStyle = STAMP_AMBER;
   ctx.textAlign = "left";
-  ctx.fillText(`KODAK SAFETY FILM 400  •  ${stampTitle}`, 16, 33);
+  ctx.fillText(`KODAK 400 SAFETY FILM  •  ${stampTitle}`, 16, 33);
+
+  // DX Barcode strip on top right
+  drawDxBarcode(ctx, filmW - 140, 27, 70);
 
   ctx.textAlign = "right";
-  ctx.fillStyle = STAMP_MUTED;
-  ctx.font = `9px ${MONO}`;
-  ctx.fillText("ISO 400", filmW - 16, 33);
+  ctx.fillStyle = STAMP_GREEN;
+  ctx.font = `bold 9px ${MONO}`;
+  ctx.fillText("DX-400", filmW - 16, 33);
 
-  // Center Photo Frame Aperture for QR
+  // Center 35mm Film Aperture Window (where the QR lives as an exposed slide)
   const fw = 340;
   const fh = 340;
   const fx = (filmW - fw) / 2;
-  const fy = 46;
+  const fy = 45;
 
-  // Film aperture rebate / bevel
-  ctx.fillStyle = "#000000";
-  ctx.fillRect(fx - 4, fy - 4, fw + 8, fh + 8);
+  // Film aperture rebate / dark mask bezel
+  ctx.fillStyle = FILM_REBATE;
+  roundRect(ctx, fx - 5, fy - 5, fw + 10, fh + 10, 4);
+  ctx.fill();
   ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
-  ctx.strokeRect(fx - 4, fy - 4, fw + 8, fh + 8);
+  ctx.lineWidth = 1;
+  ctx.stroke();
 
-  // Archival photographic paper backing (warm off-white quiet zone)
-  ctx.fillStyle = "#faf9f6";
-  roundRect(ctx, fx, fy, fw, fh, 2);
+  // Backlit Film Slide Transparency (warm emulsion tone with soft vignette)
+  const grad = ctx.createRadialGradient(
+    fx + fw / 2,
+    fy + fh / 2,
+    fw * 0.2,
+    fx + fw / 2,
+    fy + fh / 2,
+    fw * 0.7,
+  );
+  grad.addColorStop(0, "#faf7f0");
+  grad.addColorStop(0.85, "#f4eee0");
+  grad.addColorStop(1, "#eae1cf");
+
+  ctx.fillStyle = grad;
+  roundRect(ctx, fx, fy, fw, fh, 3);
   ctx.fill();
 
-  // Subtle corner registration marks on frame
-  ctx.strokeStyle = "rgba(0, 0, 0, 0.15)";
+  // Subtle film aperture inner border
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.18)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(fx, fy, fw, fh);
+
+  // Authentic corner registration tick marks
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.22)";
   ctx.lineWidth = 1.5;
-  const cl = 12;
+  const cl = 10;
   // Top-left
   ctx.beginPath();
-  ctx.moveTo(fx + 10, fy + 10 + cl);
-  ctx.lineTo(fx + 10, fy + 10);
-  ctx.lineTo(fx + 10 + cl, fy + 10);
+  ctx.moveTo(fx + 8, fy + 8 + cl);
+  ctx.lineTo(fx + 8, fy + 8);
+  ctx.lineTo(fx + 8 + cl, fy + 8);
   ctx.stroke();
   // Top-right
   ctx.beginPath();
-  ctx.moveTo(fx + fw - 10 - cl, fy + 10);
-  ctx.lineTo(fx + fw - 10, fy + 10);
-  ctx.lineTo(fx + fw - 10, fy + 10 + cl);
+  ctx.moveTo(fx + fw - 8 - cl, fy + 8);
+  ctx.lineTo(fx + fw - 8, fy + 8);
+  ctx.lineTo(fx + fw - 8, fy + 8 + cl);
   ctx.stroke();
   // Bottom-left
   ctx.beginPath();
-  ctx.moveTo(fx + 10, fy + fh - 10 - cl);
-  ctx.lineTo(fx + 10, fy + fh - 10);
-  ctx.lineTo(fx + 10 + cl, fy + fh - 10);
+  ctx.moveTo(fx + 8, fy + fh - 8 - cl);
+  ctx.lineTo(fx + 8, fy + fh - 8);
+  ctx.lineTo(fx + 8 + cl, fy + fh - 8);
   ctx.stroke();
   // Bottom-right
   ctx.beginPath();
-  ctx.moveTo(fx + fw - 10 - cl, fy + fh - 10);
-  ctx.lineTo(fx + fw - 10, fy + fh - 10);
-  ctx.lineTo(fx + fw - 10, fy + fh - 10 - cl);
+  ctx.moveTo(fx + fw - 8 - cl, fy + fh - 8);
+  ctx.lineTo(fx + fw - 8, fy + fh - 8);
+  ctx.lineTo(fx + fw - 8, fy + fh - 8 - cl);
   ctx.stroke();
 
-  // Draw high-res QR code centered with generous quiet zone
-  const qSize = 280;
+  // Slide top & bottom micro labels inside the film window
+  ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+  ctx.font = `bold 8px ${MONO}`;
+  ctx.textAlign = "center";
+  ctx.fillText("35MM SLIDE TRANSPARENCY  •  SAFETY FILM", fx + fw / 2, fy + 14);
+
+  // Draw high-res QR code centered with clear quiet zone
+  const qSize = 270;
   const qx = fx + (fw - qSize) / 2;
-  const qy = fy + (fh - qSize) / 2;
+  const qy = fy + (fh - qSize) / 2 + 2;
   ctx.drawImage(img, qx, qy, qSize, qSize);
 
-  // Frame corner stamp index inside photo aperture
-  ctx.fillStyle = "#000000";
-  ctx.font = `bold 10px ${MONO}`;
+  // Frame stamp index inside aperture
+  ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+  ctx.font = `bold 9px ${MONO}`;
   ctx.textAlign = "right";
-  ctx.fillText("01A", fx + fw - 12, fy + fh - 10);
+  ctx.fillText("#19A", fx + fw - 10, fy + fh - 8);
 
-  // Bottom film edge markings
+  // Bottom edge markings & DX barcode on bottom rail
   ctx.textAlign = "left";
-  ctx.fillStyle = STAMP;
-  ctx.font = `bold 11px ${MONO}`;
-  ctx.fillText("► 01A  •  SCAN TO JOIN ALBUM", 16, filmH - 10);
+  ctx.fillStyle = STAMP_AMBER;
+  ctx.font = `bold 10px ${MONO}`;
+  ctx.fillText("► 19A  •  SCAN TO JOIN ROLL", 16, filmH - 10);
+
+  // DX Barcode strip on bottom right
+  drawDxBarcode(ctx, filmW - 200, filmH - 16, 60);
 
   if (eventDate) {
     ctx.textAlign = "right";
     ctx.fillStyle = STAMP_MUTED;
-    ctx.font = `10px ${MONO}`;
+    ctx.font = `9px ${MONO}`;
     ctx.fillText(eventDate, filmW - 16, filmH - 10);
   }
 
