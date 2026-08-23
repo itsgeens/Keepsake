@@ -3,10 +3,25 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { X, Film, Share2, Download } from "lucide-react";
 import type { RollPhoto } from "@/components/gallery/PhotoDetailModal";
-import { loadImageElement, renderFilmStrip } from "@/lib/photo/filmStrip";
-import { shareOrDownloadCanvas, downloadCanvas } from "@/lib/photo/shareImage";
+import {
+  loadImageElement,
+  renderFilmStrip,
+  renderFilmFrame,
+} from "@/lib/photo/filmStrip";
+import {
+  shareOrDownloadCanvases,
+  downloadCanvases,
+} from "@/lib/photo/shareImage";
 
 const MAX_FRAMES = 5;
+
+type StripMode = "vertical" | "horizontal" | "frames";
+
+const MODES: { value: StripMode; label: string }[] = [
+  { value: "vertical", label: "Vertical" },
+  { value: "horizontal", label: "Horizontal" },
+  { value: "frames", label: "Frames" },
+];
 
 function slugify(value: string) {
   return value.replace(/[^a-z0-9]+/gi, "").toLowerCase() || "filmstrip";
@@ -30,12 +45,18 @@ export default function FilmStripModal({
   onToast,
 }: FilmStripModalProps) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [title, setTitle] = useState(`${coupleName} ${eventDate}`);
+  const [mode, setMode] = useState<StripMode>("vertical");
   const [busy, setBusy] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const frameRefs = useRef<(HTMLCanvasElement | null)[]>([]);
   const imgCache = useRef<Map<string, HTMLImageElement | HTMLCanvasElement>>(
     new Map(),
+  );
+
+  const stampText = useMemo(
+    () => `${coupleName} ${eventDate}`,
+    [coupleName, eventDate],
   );
 
   function makePlaceholder(): HTMLCanvasElement {
@@ -59,13 +80,9 @@ export default function FilmStripModal({
     [photos, selectedIds],
   );
 
-  // Live preview: re-render the canvas whenever the selection, preset, or
-  // title changes. Images are cached by URL so preset/title edits don't
-  // re-fetch from the network.
+  // Live preview: re-render whenever the selection, mode, or stamp changes.
   useEffect(() => {
     if (!open) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
     let cancelled = false;
 
     (async () => {
@@ -86,26 +103,44 @@ export default function FilmStripModal({
           }),
         );
         if (cancelled) return;
-        await renderFilmStrip(canvas, images, {
-          title,
-          dateStamp: eventDate,
-        });
-      } catch {
-        if (!cancelled) {
-          const ctx = canvas.getContext("2d");
-          if (ctx) {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            canvas.width = 0;
-            canvas.height = 0;
+
+        if (mode === "frames") {
+          selectedPhotos.forEach((_, i) => {
+            const c = frameRefs.current[i];
+            if (c && images[i]) {
+              renderFilmFrame(c, images[i], {
+                stampText,
+                dateStamp: eventDate,
+                index: i,
+              });
+            }
+          });
+        } else {
+          const c = canvasRef.current;
+          if (!c) return;
+          try {
+            await renderFilmStrip(c, images, {
+              orientation: mode,
+              stampText,
+              dateStamp: eventDate,
+            });
+          } catch {
+            const ctx = c.getContext("2d");
+            if (ctx) {
+              c.width = 0;
+              c.height = 0;
+            }
           }
         }
+      } catch {
+        /* ignore */
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [open, selectedPhotos, title, eventDate]);
+  }, [open, selectedPhotos, mode, stampText, eventDate]);
 
   function toggle(id: string) {
     if (selectedIds.includes(id)) {
@@ -120,22 +155,32 @@ export default function FilmStripModal({
   }
 
   function selectFirstFive() {
-    const mine = photos.slice(0, MAX_FRAMES).map((p) => p.id);
-    setSelectedIds(mine);
+    setSelectedIds(photos.slice(0, MAX_FRAMES).map((p) => p.id));
+  }
+
+  function collectCanvases(): HTMLCanvasElement[] {
+    if (mode === "frames") {
+      return frameRefs.current
+        .filter((c): c is HTMLCanvasElement => Boolean(c))
+        .slice(0, selectedPhotos.length);
+    }
+    const c = canvasRef.current;
+    return c ? [c] : [];
   }
 
   async function handleShare() {
-    const canvas = canvasRef.current;
-    if (!canvas || selectedPhotos.length === 0) return;
+    const canvases = collectCanvases();
+    if (!canvases.length) return;
     setBusy(true);
     try {
-      const result = await shareOrDownloadCanvas(
-        canvas,
-        `${slugify(coupleName)}-filmstrip.png`,
+      const res = await shareOrDownloadCanvases(
+        canvases,
+        `${slugify(coupleName)}-filmstrip`,
         coupleName,
       );
-      if (result === "shared") onToast("Saved to your device");
-      else if (result === "downloaded") onToast("Download started");
+      if (res === "shared") onToast("Saved to your device");
+      else if (res === "downloaded")
+        onToast(mode === "frames" ? "Frames downloading" : "Download started");
     } catch {
       onToast("Could not export film strip");
     } finally {
@@ -144,10 +189,10 @@ export default function FilmStripModal({
   }
 
   function handleDownload() {
-    const canvas = canvasRef.current;
-    if (!canvas || selectedPhotos.length === 0) return;
-    downloadCanvas(canvas, `${slugify(coupleName)}-filmstrip.png`);
-    onToast("Download started");
+    const canvases = collectCanvases();
+    if (!canvases.length) return;
+    downloadCanvases(canvases, `${slugify(coupleName)}-filmstrip`);
+    onToast(mode === "frames" ? "Frames downloading" : "Download started");
   }
 
   if (!open) return null;
@@ -199,37 +244,61 @@ export default function FilmStripModal({
         </div>
 
         {/* Preview */}
-        <div className="mb-4 overflow-hidden rounded-2xl border border-zinc-800 bg-black p-3 shadow-lg">
+        <div className="mb-4 overflow-hidden rounded-2xl border border-separator bg-surface p-3 shadow-sm">
           <div className="mb-2 flex items-center justify-between border-b border-zinc-800 pb-2">
             <span className="font-mono text-[10px] uppercase tracking-wider text-accent">
               Film Strip Preview
             </span>
           </div>
-          <div className="overflow-x-auto">
+          <div className="max-h-[60vh] overflow-auto">
             {selectedPhotos.length === 0 ? (
               <p className="py-10 text-center text-xs text-zinc-500">
                 Tap photos below to build your strip
               </p>
+            ) : mode === "frames" ? (
+              <div className="flex flex-col gap-3">
+                {selectedPhotos.map((photo, i) => (
+                  <canvas
+                    key={photo.id}
+                    ref={(el) => {
+                      frameRefs.current[i] = el;
+                    }}
+                    className="w-full rounded shadow-2xl"
+                  />
+                ))}
+              </div>
             ) : (
-              <canvas
-                ref={canvasRef}
-                className="max-w-none rounded shadow-2xl"
-              />
+              <canvas ref={canvasRef} className="max-w-none rounded shadow-2xl" />
             )}
           </div>
         </div>
 
-        {/* Customization */}
+        {/* Layout mode */}
         <div className="mb-4">
           <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-text-tertiary">
-            Strip Title
+            Layout
           </label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="w-full rounded-lg border border-separator bg-surface-secondary px-2.5 py-2 text-xs text-text-primary focus:border-accent focus:outline-none"
-          />
+          <div className="flex gap-1 rounded-lg bg-surface-secondary p-0.5">
+            {MODES.map((m) => (
+              <button
+                key={m.value}
+                type="button"
+                onClick={() => setMode(m.value)}
+                className={`flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition-all ${
+                  mode === m.value
+                    ? "bg-white text-text-primary shadow-sm"
+                    : "text-text-secondary"
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1.5 text-[11px] text-text-tertiary">
+            {mode === "frames"
+              ? "Each photo becomes its own frame — download or share them all at once."
+              : "Best for posting as a single Story or feed image."}
+          </p>
         </div>
 
         {/* Selection grid */}
