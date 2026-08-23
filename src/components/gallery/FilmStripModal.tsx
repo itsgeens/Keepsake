@@ -268,7 +268,7 @@ export default function FilmStripModal({
                 ))}
               </div>
             ) : (
-              <canvas ref={canvasRef} className="max-w-none rounded shadow-2xl" />
+              <canvas ref={canvasRef} className="max-w-full h-auto rounded shadow-2xl" />
             )}
           </div>
         </div>
