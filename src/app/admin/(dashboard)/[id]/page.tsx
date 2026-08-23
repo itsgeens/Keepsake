@@ -1,9 +1,10 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { ArrowLeft, Copy, Check, RefreshCw } from "lucide-react";
+import { ArrowLeft, Copy, Check, RefreshCw, Download } from "lucide-react";
+import { exportPlainQr, exportFilmQr } from "@/lib/qr/exportQr";
 
 interface AdminEvent {
   id: string;
@@ -31,6 +32,28 @@ export default function ManageEventPage() {
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [origin, setOrigin] = useState("");
+  const qrHolderRef = useRef<HTMLDivElement>(null);
+
+  function getQrSvg(): SVGSVGElement | null {
+    return qrHolderRef.current?.querySelector("svg") ?? null;
+  }
+
+  async function handleExportPlain() {
+    const svg = getQrSvg();
+    if (!svg || !event) return;
+    await exportPlainQr(svg, `qr-${event.slug}.png`);
+  }
+
+  async function handleExportFilm() {
+    const svg = getQrSvg();
+    if (!svg || !event) return;
+    await exportFilmQr(
+      svg,
+      `qr-${event.slug}-film.png`,
+      event.couple_name,
+      event.event_date,
+    );
+  }
 
   useEffect(() => {
     fetch(`/api/admin/events/${id}`)
@@ -143,9 +166,41 @@ export default function ManageEventPage() {
           Guest access
         </h2>
         <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
-          <div className="rounded-xl bg-white p-3">
+          <div className="flex flex-col items-center gap-3">
+            <div className="rounded-xl bg-white p-3">
+              {joinUrl && (
+                <QRCodeSVG value={joinUrl} size={168} level="M" />
+              )}
+            </div>
+
+            <div className="flex w-full gap-2">
+              <button
+                type="button"
+                onClick={handleExportPlain}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-separator bg-surface px-3 py-2 text-xs font-semibold text-text-primary transition active:scale-95"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Plain
+              </button>
+              <button
+                type="button"
+                onClick={handleExportFilm}
+                className="flex flex-[1.2] items-center justify-center gap-1.5 rounded-xl bg-accent px-3 py-2 text-xs font-semibold text-white transition active:scale-95"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Film card
+              </button>
+            </div>
+          </div>
+
+          {/* Hidden high-res QR used only for export */}
+          <div
+            ref={qrHolderRef}
+            className="pointer-events-none absolute -z-10 h-0 w-0 overflow-hidden opacity-0"
+            aria-hidden
+          >
             {joinUrl && (
-              <QRCodeSVG value={joinUrl} size={168} level="M" />
+              <QRCodeSVG value={joinUrl} size={600} level="M" marginSize={2} />
             )}
           </div>
           <div className="w-full flex-1 space-y-2">
