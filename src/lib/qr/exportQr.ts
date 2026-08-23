@@ -37,27 +37,26 @@ function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
 
 async function svgToImage(
   svg: SVGSVGElement,
-  fgColor?: string,
+  fgColor: string = "#ffffff",
 ): Promise<HTMLImageElement> {
   const clone = svg.cloneNode(true) as SVGSVGElement;
   clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
   clone.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
 
-  // Remove any white background rect so the QR SVG has a 100% transparent background
-  const rects = clone.querySelectorAll("rect");
-  rects.forEach((rect) => {
-    const fill = rect.getAttribute("fill")?.toLowerCase();
-    if (fill === "#ffffff" || fill === "#fff" || fill === "white" || !fill) {
-      rect.remove();
-    }
-  });
+  // In qrcode.react:
+  // - The first shape element is the background (fill="#ffffff" / "white")
+  // - The second shape element is the actual QR code modules (fill="#000000" / "black")
+  const shapes = Array.from(clone.querySelectorAll("path, rect, polygon"));
 
-  // Tint QR foreground paths if specified
-  if (fgColor) {
-    const paths = clone.querySelectorAll("path");
-    paths.forEach((path) => {
-      path.setAttribute("fill", fgColor);
-    });
+  if (shapes.length >= 2) {
+    // Remove the background shape completely so the image is 100% transparent
+    shapes[0].remove();
+    // Color only the QR modules
+    for (let i = 1; i < shapes.length; i++) {
+      shapes[i].setAttribute("fill", fgColor);
+    }
+  } else if (shapes.length === 1) {
+    shapes[0].setAttribute("fill", fgColor);
   }
 
   const xml = new XMLSerializer().serializeToString(clone);
@@ -77,8 +76,8 @@ export async function exportPlainQr(
   svg: SVGSVGElement,
   filename: string,
 ) {
-  const img = await svgToImage(svg);
-  const size = img.width || 600;
+  const img = await svgToImage(svg, "#000000");
+  const size = 600;
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
@@ -86,7 +85,8 @@ export async function exportPlainQr(
   if (!ctx) throw new Error("2D context unavailable");
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, size, size);
-  ctx.drawImage(img, 0, 0, size, size);
+  const margin = 40;
+  ctx.drawImage(img, margin, margin, size - margin * 2, size - margin * 2);
   triggerDownload(await canvasToBlob(canvas), filename);
 }
 
@@ -147,7 +147,7 @@ export async function exportFilmQr(
   coupleName: string,
   eventDate: string,
 ) {
-  // Render QR with pure white/platinum foreground and 100% transparent background
+  // Render QR with pure white foreground and 100% transparent background
   const img = await svgToImage(svg, "#ffffff");
 
   // 35mm Film Slide Frame Proportions
@@ -193,21 +193,22 @@ export async function exportFilmQr(
   ctx.font = `bold 10px ${MONO}`;
   ctx.fillStyle = STAMP_AMBER;
   ctx.textAlign = "left";
-  ctx.fillText(`KODAK 400 SAFETY FILM  •  ${stampTitle}`, 16, 33);
+  ctx.fillText(`KODAK 400 SAFETY FILM  •  ${stampTitle}`, 16, 32);
 
   // DX Barcode strip on top right
-  drawDxBarcode(ctx, filmW - 140, 27, 70);
+  drawDxBarcode(ctx, filmW - 140, 26, 70);
 
   ctx.textAlign = "right";
   ctx.fillStyle = STAMP_GREEN;
   ctx.font = `bold 9px ${MONO}`;
-  ctx.fillText("DX-400", filmW - 16, 33);
+  ctx.fillText("DX-400", filmW - 16, 32);
 
   // Center 35mm Film Aperture Window (Translucent Purple Negative Emulsion)
+  // Perfectly centered horizontally and vertically
   const fw = 340;
   const fh = 340;
-  const fx = (filmW - fw) / 2;
-  const fy = 45;
+  const fx = (filmW - fw) / 2; // 110
+  const fy = 68; // Centered between top stamp and bottom sprockets
 
   // Film aperture rebate / dark mask bezel
   ctx.fillStyle = FILM_REBATE;
@@ -218,29 +219,31 @@ export async function exportFilmQr(
   ctx.stroke();
 
   // Translucent Purple / Violet-Magenta Film Negative Emulsion Window
+  const centerX = fx + fw / 2;
+  const centerY = fy + fh / 2;
   const grad = ctx.createRadialGradient(
-    fx + fw / 2,
-    fy + fh / 2,
+    centerX,
+    centerY,
     fw * 0.15,
-    fx + fw / 2,
-    fy + fh / 2,
+    centerX,
+    centerY,
     fw * 0.72,
   );
-  grad.addColorStop(0, "#5b2182"); // Luminous translucent purple center
-  grad.addColorStop(0.55, "#421663"); // Rich violet emulsion body
-  grad.addColorStop(1, "#2b0d42"); // Deep negative edge vignette
+  grad.addColorStop(0, "#6b219e"); // Luminous translucent purple center glow
+  grad.addColorStop(0.6, "#4a156d"); // Rich translucent violet-magenta body
+  grad.addColorStop(1, "#280a3d"); // Deep negative edge vignette
 
   ctx.fillStyle = grad;
-  roundRect(ctx, fx, fy, fw, fh, 3);
+  roundRect(ctx, fx, fy, fw, fh, 4);
   ctx.fill();
 
   // Subtle translucent film rebate inner stroke
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.14)";
   ctx.lineWidth = 1;
   ctx.strokeRect(fx, fy, fw, fh);
 
   // Authentic corner registration tick marks in amber
-  ctx.strokeStyle = "rgba(245, 158, 11, 0.55)";
+  ctx.strokeStyle = "rgba(245, 158, 11, 0.6)";
   ctx.lineWidth = 1.5;
   const cl = 10;
   // Top-left
@@ -269,15 +272,15 @@ export async function exportFilmQr(
   ctx.stroke();
 
   // Slide top & bottom micro labels inside the film window
-  ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
+  ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
   ctx.font = `bold 8px ${MONO}`;
   ctx.textAlign = "center";
-  ctx.fillText("35MM COLOR NEGATIVE  •  SAFETY FILM", fx + fw / 2, fy + 14);
+  ctx.fillText("35MM COLOR NEGATIVE  •  SAFETY FILM", centerX, fy + 14);
 
-  // Draw high-res QR code centered with exact equal padding
+  // Draw high-res QR code centered with exact equal padding on all sides
   const qSize = 270;
-  const qx = fx + (fw - qSize) / 2;
-  const qy = fy + (fh - qSize) / 2 + 3;
+  const qx = centerX - qSize / 2;
+  const qy = centerY - qSize / 2;
   ctx.drawImage(img, qx, qy, qSize, qSize);
 
   // Frame stamp index inside aperture
